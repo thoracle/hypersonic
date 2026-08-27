@@ -54859,6 +54859,11 @@ const TU={
   // slow enough to read as a deliberate crosser rather than a streak. 150 was
   // 2.5x forward speed and felt like a zip (user call).
   LAY_VX:95, LAY_DX:64, LAY_LEAD:1.15,
+  // touch stick. Was linear at 1.15 screens/s with no dead zone, which gave no
+  // fine control near centre and drifted on a resting thumb (user report from a
+  // phone). EXPO buys precision where the thumb actually lives: half stick is
+  // now ~1/4 the old speed while full stick keeps 83% of it.
+  JOY_RATE:0.95, JOY_EXPO:2.2, JOY_DEAD:0.12,
   // section boundaries: a timbre change, or an intensity regime change
   SEC_NOV:0.16, SEC_JUMP:0.35,
   // terrain macro shape (the P1 lever)
@@ -54886,6 +54891,10 @@ const TUNEDEFS=[
     [TU,'LAY_VX','traverse wu/s',30,260,5],
     [TU,'LAY_DX','mine spacing wu',24,180,4],
     [TU,'LAY_LEAD','station x horizon',0.5,1.45,0.05]]],
+  ['TOUCH STICK',[
+    [TU,'JOY_RATE','max screens/s',0.3,2.0,0.05],
+    [TU,'JOY_EXPO','fine-control expo',1.0,3.5,0.1],
+    [TU,'JOY_DEAD','dead zone',0,0.35,0.01]]],
   ['SECTIONS',[
     [TU,'SEC_NOV','novelty trip',0.05,0.40,0.01],
     [TU,'SEC_JUMP','intensity jump',0.10,0.80,0.01]]],
@@ -56747,6 +56756,16 @@ function toggleTune(on){
   tuneEl.style.display=show?'block':'none';
   if(!show){try{localStorage.setItem(TUNE_LS,JSON.stringify(tuneDirty()));}catch(_){}}
 }
+// ?tu=JOY_RATE:0.8,JOY_EXPO:2.5 -- the panel's knobs from a URL. The panel is
+// a desktop surface (sliders and a ` key), so this is the only way to tune feel
+// on the phone the feel is actually for.
+if(qs.get('tu')){
+  for(const kv of qs.get('tu').split(',')){
+    const [k,v]=kv.split(':');
+    for(const r of tuneRows)if(r.key===k&&isFinite(+v))r.obj[k]=+v;
+  }
+  tuneSync();
+}
 if(qs.get('tune'))toggleTune(true);
 addEventListener('keydown',e=>{
   if(e.key==='`'){toggleTune();return;}
@@ -57704,8 +57723,16 @@ function tick(now,doRender=true){
   if(vizMode===2)bzTerrain.material.opacity=0.85+0.15*beatEnv;   // beat ADDS
   // virtual joystick: velocity-steer the aim point (finger never occludes it)
   if(TOUCHUI&&joyV.id!==null){
-    mouse.x=Math.max(0,Math.min(1,mouse.x+joyV.x*dt*1.15));
-    mouse.y=Math.max(0,Math.min(1,mouse.y+joyV.y*dt*1.15));
+    // Shape the MAGNITUDE and keep the direction: a per-axis curve would bend
+    // diagonals. Dead zone first, then expo, so a thumb resting slightly off
+    // centre does nothing at all and small deflections stay genuinely slow.
+    const mag=Math.hypot(joyV.x,joyV.y);
+    if(mag>TU.JOY_DEAD){
+      const u=Math.min(1,(mag-TU.JOY_DEAD)/(1-TU.JOY_DEAD));
+      const k=Math.pow(u,TU.JOY_EXPO)/mag*dt*TU.JOY_RATE;
+      mouse.x=Math.max(0,Math.min(1,mouse.x+joyV.x*k));
+      mouse.y=Math.max(0,Math.min(1,mouse.y+joyV.y*k));
+    }
   }
   // reticle: unproject mouse to the aim plane — fully free, anywhere on
   // screen (the old ±120/+85/−55 weapon-cone clamp is gone)

@@ -47,8 +47,22 @@ server, no network, nothing to install. Five songs ship with it, and
 `server.py` is not `http.server`: it adds HTTP Range support, which `<audio>`
 seeking requires, and `Cache-Control: no-store`.
 
+## The music is code too
+
+All five songs are original, written as a program: `tools/make_music.py`
+renders them deterministically from a small synthesis toolkit. They are MIT
+like everything else here, so nothing in this repo owes anyone attribution.
+
+They were not composed by ear. Each aims at the measured *fingerprint* of a
+licensed track it replaced — percussive share, tempo, brightness, dynamic range
+— because that fingerprint is exactly what the game reads to pick the biome,
+the bestiary and the boss. `tools/fingerprint.py` measures it offline in about
+a second, which is what made composing against a target practical.
+
+    python3 tools/make_music.py tracks     # regenerate the songs
+    python3 tools/fingerprint.py           # measure what they became
+
 ## Licence
 
-This project's own code is MIT (`LICENSE`). The bundled Three.js, the Press
-Start 2P typeface and the five music tracks each keep their own licence — see
-[THIRD-PARTY.md](THIRD-PARTY.md).
+MIT (`LICENSE`) — the code, and the music. The bundled Three.js and the Press
+Start 2P typeface keep their own licences; see [THIRD-PARTY.md](THIRD-PARTY.md).

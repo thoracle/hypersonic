@@ -11,7 +11,7 @@ What lands in release/:
     index.html          the bundled, self-contained game (tools/bundle.py)
     game.html           the readable source it was built from
     static/vendor/      Three.js + the cabinet font, with VERSIONS.md
-    tracks/             the five CC-BY songs + ATTRIBUTION.md
+    tracks/             the five ORIGINAL songs + CREDITS.md
     server.py           local dev server (Range support: <audio> needs it)
     tools/              bundle.py + release.py
     LICENSE             MIT, this project's own code
@@ -35,7 +35,8 @@ FILES = [
     'licenses/three.js-LICENSE.txt', 'licenses/PressStart2P-OFL.txt',
     'static/vendor/three.module.js', 'static/vendor/PressStart2P-Regular.ttf',
     'static/vendor/VERSIONS.md',
-    'tools/bundle.py', 'tools/release.py',
+    'tools/bundle.py', 'tools/release.py', 'tools/make_music.py',
+    'tools/make_qa_tracks.py', 'tools/fingerprint.py',
 ]
 
 README = """# Hypersonic
@@ -87,31 +88,47 @@ server, no network, nothing to install. Five songs ship with it, and
 `server.py` is not `http.server`: it adds HTTP Range support, which `<audio>`
 seeking requires, and `Cache-Control: no-store`.
 
+## The music is code too
+
+All five songs are original, written as a program: `tools/make_music.py`
+renders them deterministically from a small synthesis toolkit. They are MIT
+like everything else here, so nothing in this repo owes anyone attribution.
+
+They were not composed by ear. Each aims at the measured *fingerprint* of a
+licensed track it replaced — percussive share, tempo, brightness, dynamic range
+— because that fingerprint is exactly what the game reads to pick the biome,
+the bestiary and the boss. `tools/fingerprint.py` measures it offline in about
+a second, which is what made composing against a target practical.
+
+    python3 tools/make_music.py tracks     # regenerate the songs
+    python3 tools/fingerprint.py           # measure what they became
+
 ## Licence
 
-This project's own code is MIT (`LICENSE`). The bundled Three.js, the Press
-Start 2P typeface and the five music tracks each keep their own licence — see
-[THIRD-PARTY.md](THIRD-PARTY.md).
+MIT (`LICENSE`) — the code, and the music. The bundled Three.js and the Press
+Start 2P typeface keep their own licences; see [THIRD-PARTY.md](THIRD-PARTY.md).
 """
 
 
-ATTRIBUTION = """# Track attributions
+CREDITS = """# Music
 
-The five tracks in this directory are by Kevin MacLeod (incompetech.com),
-licensed under Creative Commons: By Attribution 4.0
-(https://creativecommons.org/licenses/by/4.0/):
+All five songs are original to this project, written as code:
+`tools/make_music.py` renders them deterministically from a small synthesis
+toolkit. They are covered by the same MIT licence as the rest of the project
+(../LICENSE) and carry no attribution requirement.
 
-- heavy-interlude.mp3 ("Heavy Interlude")
-- hard-boiled.mp3 ("Hard Boiled")
-- severe-tire-damage.mp3 ("Severe Tire Damage")
-- cut-and-run.mp3 ("Cut and Run")
-- ready-aim-fire.mp3 ("Ready Aim Fire")
+- neon-run     driving and bright, arpeggio-led
+- slow-tide    sustained and tonal; the game floods this one into an archipelago
+- ember-drive  drum-led and wide, the most percussive of the set
+- gaslight     slow, dark and low-register
+- tire-fire    the fastest and brightest
 
-CC BY 4.0 requires that this attribution travels with the audio. Keep this file
-next to the tracks in any copy, fork or redeployment.
+They were composed to a measured target rather than by ear: each aims at the
+fingerprint (tools/fingerprint.py) of a licensed track it replaced, because the
+fingerprint is what the game reads to choose biome, bestiary and boss.
 
-Nothing in this project relicenses them: the MIT grant in ../LICENSE covers the
-project's own code only. See ../THIRD-PARTY.md.
+    python3 tools/make_music.py tracks     # regenerate
+    python3 tools/fingerprint.py           # measure what they became
 """
 
 
@@ -139,10 +156,7 @@ def main():
         os.makedirs(os.path.dirname(dst), exist_ok=True)
         shutil.copy2(src, dst)
 
-    # the source ATTRIBUTION.md documents the qa-* fixtures and points at tools
-    # this tree does not contain. Ship only the part that is legally required
-    # and true of what is actually here.
-    open(os.path.join(out, 'tracks', 'ATTRIBUTION.md'), 'w').write(ATTRIBUTION)
+    open(os.path.join(out, 'tracks', 'CREDITS.md'), 'w').write(CREDITS)
     open(os.path.join(out, 'README.md'), 'w').write(README)
     open(os.path.join(out, '.gitignore'), 'w').write('runs/\nanalysis/\n__pycache__/\n')
 
@@ -150,8 +164,10 @@ def main():
     banned = ('bars.html', 'flythrough.html', 'heightfield.html', 'landscape.html',
               'stream.html', 'targeting.html', 'terrain.html', 'terrain-scroll.html',
               'viz2d.html', 'RESTART.md', 'analyze_run.py', 'analyze_shots.py',
-              'botrun.sh', 'macro_study.py', 'classify_study.py', 'compare_tracks.py',
-              'make_qa_tracks.py')
+              'botrun.sh', 'macro_study.py', 'classify_study.py', 'compare_tracks.py')
+    # make_qa_tracks.py IS shipped, despite generating fixtures: make_music.py
+    # imports its synthesis primitives, so the released tracks cannot be
+    # regenerated without it.
     total = 0
     for dirpath, _, names in os.walk(out):
         for nm in names:

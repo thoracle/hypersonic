@@ -10,12 +10,14 @@ GitHub Pages (thoracle.github.io/<repo>/). What it does:
     safe -- bundle.py re-checks all three and refuses if that ever changes.
   * inlines the Press Start 2P face as a data: URI (the cabinet type is the
     look; a missing font would fall back to system mono).
-  * drops the qa-* tones from the song list. They are synthetic fixtures for
-    the QA rig, not music, and nobody should be shipped them.
+  * drops the qa-* tones AND the CC-BY reference set from the song list. The
+    tones are QA fixtures, not music; the CC-BY tracks are a dev-only A/B
+    reference. The shipped songs are ORIGINAL (tools/make_music.py), so the
+    built page carries no music licence obligation at all.
   * copies the game tracks to dist/tracks/. They stay FILES rather than data
-    URIs: ~37MB of audio inside the HTML would have to be base64'd to ~49MB
-    and parsed before the page could draw. GitHub Pages serves them with
-    Range support, which is what <audio> seeking needs.
+    URIs: 8MB of audio inside the HTML would have to be base64'd to ~11MB and
+    parsed before the page could draw. GitHub Pages serves them with Range
+    support, which is what <audio> seeking needs.
 
 The QA POST endpoints need no work here: game.html routes all of them through
 qaPost(), which is a no-op off localhost.
@@ -72,6 +74,23 @@ def inline_font(html):
                 'the font url')
 
 
+def drop_game_tracks(html):
+    """--no-tracks ships no audio, so the picker must not offer any -- and the
+    CC-BY credit must not name songs that are not there."""
+    m = re.search(r"const GAME_TRACKS=\[.*?\];", html, re.S)
+    if not m: die('could not find GAME_TRACKS')
+    return html.replace(m.group(0), 'const GAME_TRACKS=[];   // --no-tracks')
+
+
+def drop_ccby_tracks(html):
+    """The CC-BY set is a local A/B reference only. Shipping it would put an
+    attribution obligation on every fork of the built page; the shipped songs
+    are original, so the public build carries no music licence at all."""
+    m = re.search(r"const CCBY_TRACKS=\[.*?\];", html, re.S)
+    if not m: die('could not find CCBY_TRACKS')
+    return html.replace(m.group(0), 'const CCBY_TRACKS=[];   // dev-only reference set')
+
+
 def drop_qa_tracks(html):
     m = re.search(r"const QA_TRACKS=\[[^\]]*\];", html)
     if not m: die('could not find QA_TRACKS')
@@ -94,7 +113,10 @@ def main():
     html = read('game.html')
     html = inline_font(html)
     html = drop_qa_tracks(html)
+    html = drop_ccby_tracks(html)
     tracks = game_tracks(html)
+    if a.no_tracks:
+        html = drop_game_tracks(html)
     html = inline_three(html)          # last: it makes the file huge to scan
 
     for stray in re.findall(r'''["'(]/(?:static|tracks)/[^"')]*''', html):
@@ -119,10 +141,8 @@ def main():
             total += os.path.getsize(src)
         print(f'  tracks/             {len(tracks)} files, '
               f'{sum(os.path.getsize(os.path.join(tdir,t)) for t in tracks)/1e6:6.2f} MB')
-        attr = os.path.join(ROOT, 'tracks', 'ATTRIBUTION.md')
-        if os.path.exists(attr):
-            shutil.copy2(attr, os.path.join(tdir, 'ATTRIBUTION.md'))
-            print('  tracks/ATTRIBUTION.md  copied (CC-BY requires it)')
+        # no ATTRIBUTION.md: the shipped music is original. release.py writes
+        # a CREDITS.md saying so -- courtesy, not obligation.
     print(f'  total               {total/1e6:6.2f} MB  ->  {a.out}/')
 
 

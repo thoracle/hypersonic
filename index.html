@@ -170,6 +170,26 @@
     font-size:11px;letter-spacing:0.5em;pointer-events:none}
   #od span{color:#3a1038}
   #od span.on{color:#ff3ce0;text-shadow:0 0 8px #ff3ce0}
+  /* LOCK ROW. Rez puts the lock count in the centre of the reticle and so do
+     we -- but the reticle is the thing you STOP looking at once you have swept
+     and moved on, which is exactly the complaint. This is the same number
+     somewhere that holds still. It also shows CAPACITY while empty, which Rez
+     never needed to: a player who taps instead of holding never accumulates a
+     lock, so never sees a count, so never learns that locks stack. Eight empty
+     slots sitting there is the only thing that teaches the mechanic before you
+     use it. */
+  #lock{position:fixed;top:150px;left:50%;transform:translateX(-50%);z-index:2;
+    font-family:'Press Start 2P',ui-monospace,monospace;pointer-events:none;
+    font-size:9px;letter-spacing:0.12em;white-space:nowrap;
+    display:flex;align-items:center;gap:9px}
+  #lock .lbl{color:#3f6e57;min-width:64px;text-align:right}
+  #lock.held .lbl{color:#33ff55;text-shadow:0 0 8px #33ff55}
+  #lock.trk .lbl{color:#ffd76a;text-shadow:0 0 8px #ffd76a}
+  #lock.max .lbl{color:#ffd76a;text-shadow:0 0 10px #ffd76a}
+  #lock .pips{letter-spacing:0.2em;font-size:13px;line-height:1}
+  #lock .pips i{font-style:normal;color:#173423}
+  #lock .pips i.on{color:#33ff55;text-shadow:0 0 8px #33ff55}
+  #lock .pips i.fly{color:#ffd76a;text-shadow:0 0 8px #ffd76a}
   /* SECTION BANNER, zone-entrance style. It used to be a world-space popup
      drifting past with the terrain, which made the one label that describes
      the WHOLE passage read like a score pop. Now it is stationary DOM at the
@@ -292,7 +312,10 @@
     #shield{top:39px;width:190px;height:7px;border-radius:4px}
     #lvl{top:50px;font-size:9px;letter-spacing:0.45em}
     #od{top:62px;font-size:9px;letter-spacing:0.4em}
-    #zone{top:80px}
+    #lock{top:76px;font-size:7px;gap:6px}
+    #lock .lbl{min-width:52px}
+    #lock .pips{font-size:10px;letter-spacing:0.16em}
+    #zone{top:94px}
     #zone .cls{font-size:12px;letter-spacing:0.18em}
     #zone .idx{font-size:7px;margin-top:5px}
   }
@@ -384,6 +407,7 @@
 <div id="hud">select a track</div><div id="score"></div><div id="bigscore">0</div>
 <div id="shield"><div id="shieldfill"></div></div>
 <div id="lvl"></div><div id="od"></div>
+<div id="lock"><span class="lbl">LOCK</span><span class="pips"></span></div>
 <div id="zone"><span class="cls"></span><span class="idx"></span></div>
 <div id="dmg"></div>
 <canvas id="radar" width="160" height="160"></canvas>
@@ -55931,8 +55955,19 @@ web.frustumCulled=false; scene.add(web);
 // fills — lines behind terrain or another hull vanish, exactly like the
 // original vector cabinet. Black sky; fog fades the green lines to black.
 const bzBlack=new THREE.Color(0x000302);
+// VECTOR PROXIMITY GLOW. A real vector CRT has no per-line brightness -- it
+// looks that way because the beam RETRACES, so wherever lines crowd, the
+// phosphor gets hit more and blooms. Additive blending is that, exactly: the
+// lines sum where they overlap, so ridges and dense far geometry light up on
+// their own while open ground stays a thin trace. The sea overlay has always
+// been additive; the land was the one surface still compositing flat, which
+// is why it read as a wireframe drawing rather than a display.
+// depthWrite off, depthTest ON: the invisible fill underneath still writes
+// depth (polygonOffset nudges it back), so hidden ridges stay hidden and the
+// accumulation only happens among lines you can actually see.
 const bzTerrain=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({
-  color:GREEN,wireframe:true,transparent:true,opacity:0.85}));
+  color:GREEN,wireframe:true,transparent:true,opacity:0.85,
+  blending:THREE.AdditiveBlending,depthWrite:false}));
 bzTerrain.renderOrder=5; bzTerrain.visible=false;
 mesh.add(bzTerrain);   // child of the terrain: inherits the sub-row slide
 function bzWrap(root,on){
@@ -56588,11 +56623,23 @@ function spawnDummies(laneX,p,n){
     // at HMAX=110), gliding down into the engagement band on the way in
     const y0=150+p*70+i*12, zs=-(HORIZON+320);
     m.position.set(wx, y0, zs);
-    const flightS=(-zs+CAMBACK)/SPEED;
+    // CLOSING RATE, and it is the MUSIC that sets it, not a random roll: the
+    // strength of the onset that spawned this thing. A loud hit throws
+    // something that arrives fast, a soft one something that drifts. So the
+    // field speeds up and calms down with the track instead of reading as an
+    // arbitrary mix -- and two plays of the same song still produce the same
+    // world, because p comes from the analysis.
+    // Bounded deliberately: the closing rate is the player's shot WINDOW, and
+    // 1.24x is about 19% less time to lock and release, which the spawn proof
+    // and the ghost-cull still leave honest.
+    const vz=0.82+p*0.42+(hash(globalRow,i+31)-0.5)*0.08;
+    // the glide-down has to use the ADJUSTED flight time or a fast one arrives
+    // still high and a slow one flies itself into the ground
+    const flightS=(-zs+CAMBACK)/(SPEED*vz);
     bump(p>=0.6?'heavy':'drone');
     m.userData={type:'dummy', kind:p>=0.6?'heavy':'drone',
       bounty:p>=0.6?25:10, phase:hash(globalRow,i+7)*6.28,
-      queued:0, flash:0.6,
+      queued:0, flash:0.6, vz,
       wob:(8+p*10)*(0.8+heat*0.6),           // hotter players get livelier targets
       sink:(y0-88)/flightS};
     enemies.add(m); scene.add(m);
@@ -57958,12 +58005,15 @@ function drawRadar(now){
 // MIRROR each other across the top of the screen, so one of them surviving a
 // cinematic blackout reads as a bug rather than as a choice.
 const hudAll=['hud','score','bigscore','shield','lvl','od','hiscore','radar',
-              'viz','touchui','zone']
+              'viz','touchui','zone','lock']
   .map(id=>document.getElementById(id));
 // Deliberately NOT in hudAll. hudAll is what a cinematic and PASSENGER mode
 // take away; the pause button follows the cinematic (a cutscene gets a clean
 // frame) but NOT passenger, because on a phone it is the only way out of a run.
 const pauseEl=document.getElementById('pauseBtn');
+const lockEl=document.getElementById('lock');
+const lockLbl=lockEl.querySelector('.lbl'), lockPips=lockEl.querySelector('.pips');
+let lockShown={q:-1,f:-1,c:-1};
 let hudShown=true;
 
 // ---------------- sim loop ----------------
@@ -58569,12 +58619,13 @@ function tick(now,doRender=true){
       }
     }else{
       const vx=Math.sin(tNow*1.4+u.phase)*u.wob;
-      m.position.z+=scroll;
+      const vzs=scroll*(u.vz||1);            // its own closing rate
+      m.position.z+=vzs;
       if(scroll)m.position.y=Math.max(86,m.position.y-u.sink*dt);
       m.position.x+=vx*dt;
       // nose along the ACTUAL motion vector (wobble + sink + scroll), with a
       // slow roll about that axis — no more aimless tumbling
-      mv2.set(vx,scroll?-u.sink:0,SPEED);
+      mv2.set(vx,scroll?-u.sink:0,SPEED*(u.vz||1));
       m.lookAt(mv1.copy(m.position).add(mv2));
       m.rotateZ(tNow*2+u.phase);
       if(Math.random()<0.5)emit(m.position.x,m.position.y,m.position.z-4,
@@ -58677,6 +58728,21 @@ function tick(now,doRender=true){
     for(const e of hudAll)
       e.style.visibility=(hudWant&&!PASSENGER)?'visible':'hidden';
     pauseEl.style.visibility=hudWant?'visible':'hidden';}
+  // ---- the lock row: the reticle's count, somewhere that holds still ----
+  // Repainted only when the numbers move; innerHTML every frame on a phone is
+  // not free.
+  {
+    const nq=queue.length, nf=pending.length, cap=P.QUEUE_MAX;
+    if(nq!==lockShown.q||nf!==lockShown.f||cap!==lockShown.c){
+      lockShown={q:nq,f:nf,c:cap};
+      let pips='';
+      for(let i=0;i<cap;i++)
+        pips+=`<i class="${i<nq?'on':i<nq+nf?'fly':''}">${i<nq?'\u25c6':'\u25c7'}</i>`;
+      lockPips.innerHTML=pips;
+      lockLbl.textContent=nq>=cap?'MAX':nq>0?'LOCKED':nf>0?'TRACKING':'LOCK';
+      lockEl.className=nq>=cap?'max':nq>0?'held':nf>0?'trk':'';
+    }
+  }
   const targetScale=(holdLock||hoverNear||hoverItem||queue.length>0||pending.length>0)?1.25:1.0;
   reticleScale+=(targetScale-reticleScale)*(1-Math.exp(-dt/0.08));
   lockFlash=Math.max(0,lockFlash-dt*5);
@@ -58740,7 +58806,10 @@ function tick(now,doRender=true){
     else if(tu.type==='boss'||tu.type==='bay')mv2.set(0,0,0);  // sky-holders:
       // they do NOT ride the scroll — phantom scroll-lead was parking bay
       // shots ~35wu behind orbiting shards (9 terrain impacts on qa-funk)
-    else mv2.set(0,-(tu.sink||0),SPEED);           // pods/mines ride the scroll
+    // ...and a drone rides it at its OWN rate. The lead has to use the same
+    // number the mover does, or every fast drone eats a systematic under-lead
+    // and the accuracy axis quietly rots.
+    else mv2.set(0,-(tu.sink||0),SPEED*(tu.vz||1));
     // lead FADES OUT inside 130wu and is zero by 50wu: lead is intercept
     // geometry for the long chase — on final approach it becomes a phantom
     // aim point ~13wu from the target that parks missiles JUST outside the

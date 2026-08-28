@@ -170,21 +170,14 @@
     font-size:11px;letter-spacing:0.5em;pointer-events:none}
   #od span{color:#3a1038}
   #od span.on{color:#ff3ce0;text-shadow:0 0 8px #ff3ce0}
-  /* MISSILES IN FLIGHT. The first cut of this row repeated the LOCK count --
-     which the reticle already carries, Rez-style, so it said nothing new. The
-     number the reticle genuinely cannot give you is what is still RUNNING
-     after you released and looked somewhere else: the volley is away, the
-     reticle has moved on, and until now nothing on screen said how much of it
-     was still in the air. */
-  #trk{position:fixed;top:150px;left:50%;transform:translateX(-50%);z-index:2;
-    font-family:'Press Start 2P',ui-monospace,monospace;pointer-events:none;
-    font-size:9px;letter-spacing:0.12em;white-space:nowrap;
-    display:flex;align-items:center;gap:9px}
-  #trk .lbl{color:#26483a}
-  #trk .n{color:#26483a;font-variant-numeric:tabular-nums;min-width:2ch;
-    text-align:left}
-  #trk.on .lbl{color:#33ff55;text-shadow:0 0 8px #33ff55}
-  #trk.on .n{color:#eaffef;text-shadow:0 0 10px #33ff55}
+  /* There is no HUD counter for locks or for missiles in flight, and that is
+     deliberate after two attempts at one. Rez puts the lock count in the
+     CENTRE OF THE RETICLE and nowhere else; Panzer Dragoon paints targets with
+     a free reticle and shows nothing but the targets. Neither has a HUD
+     readout, because in both the volley itself IS the readout -- big trailed
+     homing shots streaming out one per target, each with its own note. You
+     watch the missiles, not a number. So the effort belongs on the TARGET
+     MARKERS and the volley, which is where it now is. */
   /* SECTION BANNER, zone-entrance style. It used to be a world-space popup
      drifting past with the terrain, which made the one label that describes
      the WHOLE passage read like a score pop. Now it is stationary DOM at the
@@ -307,7 +300,6 @@
     #shield{top:39px;width:190px;height:7px;border-radius:4px}
     #lvl{top:50px;font-size:9px;letter-spacing:0.45em}
     #od{top:62px;font-size:9px;letter-spacing:0.4em}
-    #trk{top:76px;font-size:7px;gap:6px}
     #zone{top:94px}
     #zone .cls{font-size:12px;letter-spacing:0.18em}
     #zone .idx{font-size:7px;margin-top:5px}
@@ -400,7 +392,6 @@
 <div id="hud">select a track</div><div id="score"></div><div id="bigscore">0</div>
 <div id="shield"><div id="shieldfill"></div></div>
 <div id="lvl"></div><div id="od"></div>
-<div id="trk"><span class="lbl">TRACKING</span><span class="n">0</span></div>
 <div id="zone"><span class="cls"></span><span class="idx"></span></div>
 <div id="dmg"></div>
 <canvas id="radar" width="160" height="160"></canvas>
@@ -2053,6 +2044,14 @@ function planWave(){
   // Forcing the flock size alone was not enough -- the wave PLAN is what
   // starves it, so this widens the wave and reserves the slots.
   if(LEADQA){hunters=4;n=Math.max(n,4+tanks+pods+layers);}
+  // INSTRUMENT THE PLAN. "Targets don't feel progressively harder" is a claim
+  // about what varies wave to wave, and nothing recorded that -- the final row
+  // carries spawn TOTALS, which cannot tell a run of eight-strong waves from a
+  // run that climbed to them. One row per plan, so the mix can be read against
+  // time, section and intensity after the fact.
+  waveLog.push({w:waveNum,t:+songT.toFixed(1),cls:curSecCls,
+    i:+intensity.toFixed(2),heat:+heat.toFixed(2),lv:layerLvl,
+    n,hunters,tanks,pods,layers});
   return {n,hunters,tanks,pods,layers};
 }
 function spawnEnemy(laneX,p){
@@ -2751,6 +2750,7 @@ if(LVQA){shipLevel=Math.min(3,LVQA);overdrives=4;setShipForm();}  // QA pose
 let waveKills=0, heat=0.5;             // heat = rolling wave clear-rate (difficulty)
 let rhythm=0, bestRhythm=0, rhythmOn=0, rhythmRel=0;   // the rhythm chain
 const flockSizes={};   // flock-size histogram: a LEADER rides a 3+ formation
+const waveLog=[];      // one row per planWave() -- see the note there
 // ---- shot telemetry: every missile records launch distance, bearing and
 // elevation off boresight, target type, flight time, and outcome; batches
 // POST to /log (runs/shots-*.jsonl) for post-session tuning analysis ----
@@ -2811,7 +2811,7 @@ function flushShots(final){
       sea:{max:+seaMax.toFixed(1),now:+seaLevel.toFixed(1),
         macro:+macroE.y.toFixed(3)},
       abs:{lo:+absLo.toFixed(3),hi:+absHi.toFixed(3),p:+absP.toFixed(3)},
-      fp:FP, dna:dnaSummary(), flocks:flockSizes,
+      fp:FP, dna:dnaSummary(), flocks:flockSizes, waves:waveLog,
       // Why did the level end? A run that finishes in seconds is either the
       // ended event arriving early or el.duration lying, and without these
       // three numbers the final row cannot tell those apart.
@@ -3482,15 +3482,12 @@ function drawRadar(now){
 // MIRROR each other across the top of the screen, so one of them surviving a
 // cinematic blackout reads as a bug rather than as a choice.
 const hudAll=['hud','score','bigscore','shield','lvl','od','hiscore','radar',
-              'viz','touchui','zone','trk']
+              'viz','touchui','zone']
   .map(id=>document.getElementById(id));
 // Deliberately NOT in hudAll. hudAll is what a cinematic and PASSENGER mode
 // take away; the pause button follows the cinematic (a cutscene gets a clean
 // frame) but NOT passenger, because on a phone it is the only way out of a run.
 const pauseEl=document.getElementById('pauseBtn');
-const trkEl=document.getElementById('trk');
-const trkNum=trkEl.querySelector('.n');
-let trkShown=-1;
 let hudShown=true;
 
 // ---------------- sim loop ----------------
@@ -4127,8 +4124,17 @@ function tick(now,doRender=true){
     if(u.tag){u.tag.position.copy(m.position);u.tag.quaternion.copy(cam.quaternion);
       u.tag.rotation.z=tNow*1.1;
       const tm=u.tag.material;
-      // pickups lock in ITEM-BLUE, hostiles in red — same states, two hues
-      const lc=(u.type==='item'||u.type==='node')?FRIENDLY:TAGLOCK;
+      // THE BOX WEARS THE OBJECT'S OWN COLOUR, in every state -- not white
+      // until locked. Colour is the game's first alphabet (red attacks you,
+      // gold never does, blue is yours, magenta is power) and a white box
+      // spent the most readable channel on saying "in range", which the box
+      // EXISTING already says. Now the marker names the family from the moment
+      // it appears, and the states are told apart by brightness and behaviour
+      // instead: dim -> bright -> pulsing.
+      const lc=u.type==='item'?ITEM_C[u.kind]
+              :u.type==='node'?FRIENDLY
+              :(u.type==='pod'||u.type==='layer'||u.type==='mine')?PASSIVE
+              :TAGLOCK;
       // ...and every state RAMPS with proximity. The box used to burn at one
       // fixed brightness for the whole approach, so the single most useful
       // thing about a target -- how close it is to being your problem -- was
@@ -4137,10 +4143,10 @@ function tick(now,doRender=true){
       // locked box is always brighter than an unlocked one beside it.
       const nearF=Math.max(0,Math.min(1,
         (m.position.z-WEAPON_Z)/Math.max(1,CAMBACK-WEAPON_Z)));
-      if(u.claimed){tm.color.setHex(lc);
-        tm.opacity=(0.45+0.3*Math.sin(tNow*10))*(0.7+0.3*nearF)+0.18;}
-      else if(u.queued){tm.color.setHex(lc);tm.opacity=0.62+0.38*nearF;}
-      else{tm.color.setHex(0xffffff);tm.opacity=0.22+0.46*nearF;}}
+      tm.color.setHex(lc);
+      if(u.claimed)      tm.opacity=(0.62+0.3*Math.sin(tNow*10))*(0.78+0.22*nearF);
+      else if(u.queued)  tm.opacity=0.82+0.18*nearF;
+      else               tm.opacity=0.45+0.5*nearF;}
     // the weapons-range boundary is VISIBLE on the target: ghosted beyond
     // range, popping to full brightness (flash + blip) on crossing — "lit up"
     // always means "lockable", no hover needed to find out
@@ -4214,15 +4220,6 @@ function tick(now,doRender=true){
     for(const e of hudAll)
       e.style.visibility=(hudWant&&!PASSENGER)?'visible':'hidden';
     pauseEl.style.visibility=hudWant?'visible':'hidden';}
-  // ---- missiles in the air: the one count the reticle cannot give you ----
-  // `missiles` is flight, not intent -- `pending` is still part of the LOCK
-  // pipeline (swept, waiting to be granted on the music grid), so it is not
-  // "fired" and does not belong in this number. Repainted only when it moves.
-  if(missiles.size!==trkShown){
-    trkShown=missiles.size;
-    trkNum.textContent=trkShown;
-    trkEl.className=trkShown>0?'on':'';
-  }
   const targetScale=(holdLock||hoverNear||hoverItem||queue.length>0||pending.length>0)?1.25:1.0;
   reticleScale+=(targetScale-reticleScale)*(1-Math.exp(-dt/0.08));
   lockFlash=Math.max(0,lockFlash-dt*5);

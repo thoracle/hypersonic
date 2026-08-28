@@ -10,7 +10,7 @@ different track and you get a different one.
 
 **Play it:** [thoracle.github.io/hypersonic](https://thoracle.github.io/hypersonic/),
 or open `index.html` locally. It is one self-contained file — no build step, no
-server, no network, nothing to install. Five songs ship with it, and
+server, no network, nothing to install. Nine songs ship with it, and
 **open file…** in the song picker takes any audio file on your machine.
 
 **[Field Manual](https://claude.ai/code/artifact/fedcc5f6-1c07-45f1-bc51-8b8405ae112c)**

@@ -70,9 +70,10 @@ import os, subprocess, sys
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from make_qa_tracks import (SR, Mix, write_wav, t2s, midi, noise, lp, hp,
+from make_qa_tracks import (SR, Mix, LCG, write_wav, t2s, midi, noise, lp, hp,
                             kick, snare, hat, crash, timpani, chug, bass,
-                            clav, stab, pad, strings, bell, lead)
+                            clav, stab, pad, strings, bell, lead,
+                            osc_sin, env_hold)
 
 # ---------------------------------------------------------------- helpers --
 def contour(mix, points, ramp=3.0):
@@ -102,6 +103,82 @@ def sweep(mix, t0, dur, note=33, vel=0.5):
     env = np.linspace(0, 1, n) ** 2
     out = hp(x * env, 400 + 2600 * np.linspace(0, 1, n).mean()) * vel
     mix.add(t0, out)
+
+# -------------------------------------------- voices for the QUIET biomes --
+# aurora and abyss both require percFrac < 0.03, and percFrac is the share of
+# onset flux that arrives across >=5 ADJACENT bands at once. Every stock
+# instrument above fails that somewhere: measured on an identical probe (a
+# quiet pad bed plus one voice struck every 1.6s), kick reads 0.174,
+# bell(64) 0.141, bass(33) 0.129 and stab 0.098. Two replacements do the same
+# musical job under the threshold -- and because percFrac is a RATIO, a track
+# that is DENSE in tonal onsets measures LESS percussive than a bare one.
+
+def glass(note, dur=3.2, vel=1.0, att=0.03,
+          parts=((1, 1.0), (2.76, 0.30), (5.40, 0.12), (8.93, 0.05))):
+    """A struck tone of ISOLATED sine partials over a short attack RAMP.
+
+    This is the voice that makes a sub-0.03 track playable at all: the game
+    still spawns enemies on onset events, it just must not class them as
+    percussion. Two things do that. Inharmonic sine partials (bell ratios) sit
+    further apart than a band is wide, so they light 4 SEPARATED bands instead
+    of a run -- unlike a saw or a filtered pluck, whose harmonics fill every
+    adjacent band above ~1kHz. And the ramp kills the step splatter of a note
+    that begins at full envelope, which is the whole difference from bell():
+    same partials, pf 0.023 against 0.107 on the probe.
+
+    Register matters too -- low bands are one FFT bin wide, so the analysis
+    window's own main lobe spans five of them. Keep this voice at note >= 60
+    and lengthen `att` below that."""
+    n = t2s(dur); t = np.arange(n) / SR; f = midi(note)
+    x = np.zeros(n)
+    for i, (r, a) in enumerate(parts):
+        x += a * np.sin(2 * np.pi * f * r * t) * np.exp(-t * (2.2 + i * 2.6))
+    na = min(n - 1, max(1, t2s(att)))
+    x[:na] *= np.linspace(0, 1, na) ** 2
+    return x * vel * 0.35
+
+
+def softbass(note, dur, vel=1.0, att=0.35):
+    """Sub for tracks that may not have a percussive attack anywhere.
+
+    bass() opens in 6ms, and at 40Hz the analyser's own main lobe covers five
+    of the one-bin low bands, so a fast low note IS a broadband transient
+    (probe: 0.129). Sine plus one octave, opened over a third of a second,
+    reads 0.030 for the same note and the same loudness."""
+    n = t2s(dur); f = midi(note)
+    x = osc_sin(f, n) + 0.35 * osc_sin(f * 2, n)
+    return x * env_hold(n, att, min(dur * 0.4, 1.4)) * vel * 0.5
+
+
+def deepvoice(notes, dur, vel=1.0, bright=900, att=1.8, rel=2.6, harm=7):
+    """Sustained LOW chord with no detune and no vibrato.
+
+    pad() and strings() get their warmth by beating two or three saws a few
+    cents apart, and strings() adds 5.2Hz vibrato on top. Above a few hundred
+    Hz that is inaudible to the classifier, because a band there is dozens of
+    FFT bins wide. Below about 175Hz a band is ONE bin, so the same beating
+    sweeps energy in and out of single bins and lights a run of adjacent bands
+    rising together -- which is the literal definition of the broadband
+    transient percFrac counts. Every percussive event in the first draft of
+    deep-six fell between 32 and 208Hz and not one of them was a drum
+    (percFrac 0.0208 against a <0.02 target, which cost it the leviathan).
+
+    Fixed-frequency partials cannot do that. Movement comes from a sub-Hz
+    amplitude LFO instead, which changes level without moving any energy
+    between bins."""
+    n = t2s(dur); t = np.arange(n) / SR
+    x = np.zeros(n)
+    for j, mn in enumerate(notes):
+        f = midi(mn)
+        lfo = 1.0 + 0.10 * np.sin(2 * np.pi * (0.055 + 0.021 * j) * t + j)
+        for h in range(1, harm + 1):
+            fh = f * h
+            if fh > 12000: break
+            a = np.exp(-fh / bright) / h
+            if a < 0.004: continue
+            x += a * np.sin(2 * np.pi * fh * t) * lfo
+    return x * env_hold(n, att, rel) * vel * 0.34
+
 
 def bars(t0, t1, b):
     """Bar start times, in SECONDS, covering [t0, t1).
@@ -375,9 +452,206 @@ def make_tire_fire():
     return m.master(0.95, clip=0.38, fade_from=total - 8, total=total)
 
 
+# ============================================================= ghost-light ==
+def make_ghost_light():
+    """AURORA / obelisk -- the first track that opens the quiet biomes.
+
+    The whole shipped set is veld or ember, because the fingerprint sends a
+    track to aurora only at percFrac < 0.03 AND dyn >= 0.25: sparse, tonal,
+    NO drums, and yet violently dynamic inside the first 30 seconds. Those two
+    pull against each other -- the obvious way to get a wide dynamic range is
+    to hit something -- so the range here is built out of PRESENCE instead of
+    impact: the track alternates between a single high drone (two bands lit out
+    of forty-eight) and a full-register curtain (all of them), which is a
+    far bigger swing in mean band energy than any drum kit produces.
+
+    That alternation is also rule 2, on a ~22s cycle, so the same structure
+    that earns the biome keeps the wave planner moving. Nothing here is
+    percussive, so tempo reads 0 and the whole track classes as DRIFT -- which
+    is exactly the condition the obelisk needs.
+
+    Two things are deliberately NOT done. No bells (they read percussive; see
+    glass()), and no limiter drive above ~0.5, because tanh drive lifts the
+    thin passages far more than the loud ones and dyn is the number it eats
+    first."""
+    total = 172.0
+    m = Mix(total + 6)
+    rng = LCG(1907)
+    Am = [57, 60, 64]; F = [53, 57, 60]; C = [48, 52, 55]; Em = [52, 55, 59]
+    prog = [Am, F, C, Em]
+    penta = [69, 72, 74, 76, 79, 81, 84]
+
+    def veil(t0, dur, vel=0.5):
+        """The thin state. Two high notes and nothing else -- almost the whole
+        spectrum sits under the analyser floor, which is where dyn's p10 comes
+        from. A wider or lower 'quiet' passage still lights thirty bands and
+        the dynamic range collapses."""
+        m.add(t0, pad([81, 88], dur + 1.2, vel, bright=3400, att=2.0, rel=2.6))
+
+    def curtain(t0, dur, ch, vel=1.0, bright=2600, low=True, top=True):
+        m.add(t0, strings(ch + [n + 12 for n in ch], dur + 1.4,
+                          0.62 * vel, bright=bright, att=1.5, rel=2.4))
+        if top:
+            m.add(t0, pad([n + 24 for n in ch], dur + 1.2,
+                          0.42 * vel, bright=bright + 1600, att=2.2, rel=2.6))
+        if low:
+            m.add(t0, pad([n - 12 for n in ch], dur + 1.2,
+                          0.50 * vel, bright=1200, att=1.8, rel=2.4))
+            m.add(t0, softbass(ch[0] - 24, dur + 0.8, 0.60 * vel))
+
+    def glints(t0, t1, lo=1.4, hi=3.0, vel=0.55, oct_=0):
+        """The onset stream. Enemies ride these, so density here is the level's
+        population -- and every one of them also DILUTES percFrac, which is a
+        ratio, so a busy sky is cheaper than an empty one."""
+        t = t0
+        while t < t1:
+            n = penta[int(rng.next() * len(penta))] + oct_ * 12
+            m.add(t, glass(n, 3.4, vel * (0.7 + 0.5 * rng.next())))
+            t += lo + rng.next() * (hi - lo)
+
+    # 0-9   the veil: nothing but the high drone. dyn's floor lives here.
+    veil(0, 9, 0.42)
+    glints(2.5, 8.5, 2.4, 4.0, 0.30, oct_=0)
+    # 9-26  first curtain, opening wide
+    curtain(9, 17, Am, 0.85)
+    glints(9, 26, 1.5, 2.8, 0.55)
+    # 26-33 collapse -- the second thin window the p10 needs
+    veil(26, 7, 0.40)
+    glints(27, 32, 2.2, 3.6, 0.32)
+    # 33-56 second curtain, brighter and taller
+    for i, t0 in enumerate((33, 44)):
+        curtain(t0, 11, prog[i % 4], 1.0, bright=3000)
+    glints(33, 56, 1.2, 2.4, 0.65, oct_=0)
+    # 56-64 thin
+    veil(56, 8, 0.44)
+    glints(57, 63, 2.4, 4.2, 0.34)
+    # 64-100 THE CORONA: the hottest stretch, so the boss window
+    for i, t0 in enumerate((64, 76, 88)):
+        curtain(t0, 12, prog[(i + 1) % 4], 1.0, bright=3600)
+        m.add(t0, strings([n + 24 for n in prog[(i + 1) % 4]], 13,
+                          0.34, bright=5200, att=1.2, rel=2.0))
+    glints(64, 100, 1.0, 2.0, 0.72, oct_=0)
+    glints(70, 100, 2.0, 3.4, 0.40, oct_=1)
+    # 100-110 thin
+    veil(100, 10, 0.46)
+    glints(101, 109, 2.6, 4.4, 0.34)
+    # 110-136 third curtain
+    for i, t0 in enumerate((110, 123)):
+        curtain(t0, 13, prog[(i + 2) % 4], 0.92, bright=2800)
+    glints(110, 136, 1.3, 2.6, 0.62)
+    # 136-144 thin
+    veil(136, 8, 0.44)
+    glints(137, 143, 2.4, 4.0, 0.32)
+    # 144-172 final curtain, resolving back onto the drone
+    curtain(144, 14, Am, 1.0, bright=3400)
+    curtain(158, 10, F, 0.80, bright=2600, top=False)
+    glints(144, 166, 1.2, 2.4, 0.68)
+    veil(160, 12, 0.40)
+    contour(m, [(0, 0.30), (9, 0.86), (20, 1.00), (30, 0.34), (40, 0.92),
+                (50, 1.00), (60, 0.36), (72, 0.96), (84, 1.00), (96, 0.40),
+                (106, 0.34), (118, 0.92), (130, 0.98), (140, 0.36),
+                (150, 1.00), (162, 0.86), (total, 0.60)], ramp=4.0)
+    return m.master(0.95, clip=0.42, fade_from=total - 10, total=total)
+
+
+# =============================================================== deep-six ===
+def make_deep_six():
+    """ABYSS / leviathan -- the other world nobody has seen.
+
+    Same percFrac < 0.03, opposite dynamic requirement: dyn must stay UNDER
+    0.25, and percFrac under 0.02 as well, which is what separates the
+    leviathan from the fortress. So where ghost-light spends its first 30
+    seconds swinging between two bands lit and forty-eight, this one holds a
+    continuous sub drone under everything from sample zero -- the same trick
+    slow-tide needed when its inter-phrase dips made a deliberately even track
+    measure as dynamic (0.267 against a 0.101 target).
+
+    But the wave planner still reads the whole track, and rule 2 is not
+    optional. So the CONTOUR is deliberately two-part: gentle inside the
+    fingerprint's 30s window (0.66 to 0.82, about 2dB, which dyn barely sees)
+    and then swinging its full range for the remaining two and a half minutes.
+    Narrow fingerprint, wide level. Those are measured over different windows
+    and there is no reason to trade one for the other.
+
+    The limiter is driven hard here (unlike ghost-light) for the opposite
+    reason: nothing in this track has an attack edge to flatten, and without
+    the drive a track this sustained reads under the 0.18 level floor and the
+    onset flux stops clearing its threshold."""
+    total = 176.0
+    m = Mix(total + 6)
+    rng = LCG(4460)
+    Dm = [50, 53, 57]; Bb = [46, 50, 53]; Gm = [43, 46, 50]; Am = [45, 48, 52]
+    prog = [Dm, Bb, Gm, Am]
+    tones = [62, 65, 67, 69, 72, 74, 77]
+
+    # The floor: an unbroken sub drone, overlapping so it never re-attacks.
+    # This is the single reason dyn stays narrow -- remove it and the gaps
+    # between chords become the dynamic range. deepvoice, not pad: everything
+    # under ~175Hz here has to be beat-free or it reads as percussion.
+    for i in range(int(total / 9) + 2):
+        m.add(i * 9.0, deepvoice([26, 38], 9.8, 0.72, bright=430, att=3.0, rel=3.4))
+        m.add(i * 9.0, softbass(26, 9.6, 0.30, att=1.6))
+
+    def bed(t0, dur, ch, vel=1.0, bright=1300, high=False):
+        # the body sits ON the chord and above it; the saw-based voices never
+        # go below it, and the octaves underneath are deepvoice
+        m.add(t0, deepvoice([ch[0] - 24, ch[0] - 12, ch[1] - 12], dur + 1.2,
+                            0.62 * vel, bright=620, att=2.2, rel=2.8))
+        m.add(t0, strings(ch + [n + 12 for n in ch], dur + 1.4,
+                          0.46 * vel, bright=bright, att=1.8, rel=2.6))
+        if high:
+            m.add(t0, pad([n + 12 for n in ch], dur + 1.0,
+                          0.30 * vel, bright=bright + 900, att=2.6, rel=3.0))
+
+    def calls(t0, t1, lo=2.0, hi=4.0, vel=0.45, oct_=0):
+        t = t0
+        while t < t1:
+            n = tones[int(rng.next() * len(tones))] + oct_ * 12
+            m.add(t, glass(n, 4.0, vel * (0.7 + 0.5 * rng.next()), att=0.05))
+            t += lo + rng.next() * (hi - lo)
+
+    # 0-34 THE FINGERPRINT WINDOW: held flat on purpose. One chord change,
+    # no register jumps, sparse calls -- everything that would widen dyn.
+    bed(0, 17, Dm, 0.90)
+    bed(17, 17, Bb, 0.94)
+    calls(3, 34, 2.6, 4.4, 0.42)
+    # 34-70 the shelf drops away: the level starts moving
+    for i, t0 in enumerate((34, 46, 58)):
+        bed(t0, 12, prog[i % 4], 1.0, bright=1500, high=(i == 2))
+    calls(34, 70, 1.8, 3.2, 0.52)
+    # 70-84 a trough -- almost only the drone
+    calls(70, 84, 3.4, 5.6, 0.34)
+    # 84-124 THE DEEP: hottest, sustained and tonal, which is the DRIFT
+    # section the leviathan needs to be given a window at all
+    for i, t0 in enumerate((84, 96, 108)):
+        bed(t0, 13, prog[(i + 1) % 4], 1.0, bright=1900, high=True)
+        m.add(t0, strings([n + 12 for n in prog[(i + 1) % 4]], 14,
+                          0.30, bright=2800, att=1.4, rel=2.2))
+    calls(84, 124, 1.4, 2.6, 0.60)
+    calls(90, 124, 2.6, 4.2, 0.34, oct_=1)
+    # 124-138 second trough
+    calls(124, 138, 3.2, 5.4, 0.34)
+    # 138-176 the surface: last swell, then the drone alone
+    for i, t0 in enumerate((138, 152)):
+        bed(t0, 14, prog[(i + 2) % 4], 0.94, bright=1700, high=(i == 0))
+    calls(138, 166, 1.8, 3.2, 0.54)
+    # Troughs are PLATEAUS, not notches. The macro rank is a percentile against
+    # a trailing 90s, i.e. a trend detector, so a level that only dips briefly
+    # ranks near the ceiling almost all the time -- the first draft measured a
+    # macro median of 0.94 against a 0.92 limit. Time spent low is what moves
+    # the median; the depth of a notch does not.
+    contour(m, [(0, 0.70), (12, 0.80), (24, 0.76), (32, 0.60), (40, 0.38),
+                (50, 0.36), (58, 0.95), (68, 1.00), (76, 0.42), (86, 0.38),
+                (94, 1.00), (104, 0.96), (112, 0.42), (122, 0.38),
+                (130, 0.98), (140, 1.00), (148, 0.44), (156, 0.42),
+                (164, 0.90), (total, 0.70)], ramp=5.0)
+    return m.master(0.93, clip=1.05, fade_from=total - 12, total=total)
+
+
 TRACKS = (('neon-run', make_neon_run), ('slow-tide', make_slow_tide),
           ('ember-drive', make_ember_drive), ('gaslight', make_gaslight),
-          ('tire-fire', make_tire_fire))
+          ('tire-fire', make_tire_fire), ('ghost-light', make_ghost_light),
+          ('deep-six', make_deep_six))
 
 
 def main():

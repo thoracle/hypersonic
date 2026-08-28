@@ -55438,7 +55438,24 @@ const macroRing=ring(900), mesoRing=ring(900);
 // 0.34, pinned at max 0.6% of the time). Look at what varies WITHIN a wave
 // before remapping what sizes it.
 const ABSDIFF=!!qs.get('absdiff');
+// ---- the two wave candidates, measured against the same baseline ----
+// A: wave SIZE from the section's own character instead of the instant that
+//    happened to be showing when the wave was planned. A wave is a ~15s unit;
+//    sampling one moment of a 15s EMA percentile gives a number that can land
+//    anywhere, which is what made cut-and-run bimodal (size 2 in half its
+//    waves, then 7-9 in the rest).
+// B: COMPOSITION from intensity instead of from wave PARITY. Today a pod
+//    arrives every 2nd wave and a mine-layer every 3rd regardless of what the
+//    music is doing, which is a rotation, not an escalation.
+const WSIZE=qs.get('wsize')||'';    // 'sec' = candidate A
+const WMIX=qs.get('wmix')||'';      // 'int' = candidate B
 let absLo=1e9, absHi=-1e9, absP=0.5;
+// Running mean of the rank inside the CURRENT section: the section's own
+// character, stable for its whole length, rather than whatever the instant
+// read. Falls back to the entry value for the first 2s, when the mean is
+// still one or two samples and noisier than the instant it replaces.
+let secIntSum=0, secIntN=0;
+const secMeanInt=()=>secIntN>=20?secIntSum/secIntN:secEntryInt;
 function absLevel(mac){
   if(songT<12)return 0.5;                 // pre-warm-up: assume the middle
   if(mac<absLo)absLo=mac;
@@ -55634,6 +55651,7 @@ const secLog=[], novSamp=[];
 const SEC_NAMES={drift:'DRIFT',pulse:'PULSE',build:'BUILD',surge:'SURGE',bloom:'BLOOM'};
 function sectionBoundary(mP){
   lastSecT=songT; secIdx++; secEntryInt=mP;
+  secIntSum=0; secIntN=0;                 // a new section, a new character
   for(let i=0;i<BANDS;i++)secSlow[i]=secFast[i];   // re-arm the detector
   // classify the incoming section: intensity x percussive/tonal balance.
   // The balance is TRACK-RELATIVE flux share: percussive-classed only when
@@ -56576,7 +56594,8 @@ function planWave(){
   const perc=percRate.length, ton=tonalRate.length;
   const total=Math.max(1,perc+ton);
   // DEFAULT OFF, and MEASURED before it was believed -- see absLevel().
-  const intensity=Math.max(0,Math.min(1,(ABSDIFF?absP:macroOut.y)*(0.8+heat*0.4)));
+  const lvl=ABSDIFF?absP:(WSIZE==='sec'?secMeanInt():macroOut.y);
+  const intensity=Math.max(0,Math.min(1,lvl*(0.8+heat*0.4)));
   let n=Math.max(2,Math.min(P.QUEUE_MAX,Math.round(2+intensity*6)));
   // the LAYER thickens the field: every 3 analyzed nodes buys the world
   // one more slot per wave (Rez's layers escalate with player progress)
@@ -56594,11 +56613,16 @@ function planWave(){
   tanks=Math.min(tanks,Math.max(0,n-2));   // never a mostly-tank wave
   // Defender tier: quiet/tonal sections hang PODS (passive until popped);
   // every third wave — and bloom sections — field a MINE-LAYER
+  // B swaps the PARITY rotation for the music: a pod is the quiet answer (a
+  // passive puzzle when nothing is pushing you), a mine-layer the middle one
+  // (a barrier costs time, which a busy passage cannot spare).
   let pods=PODQA?1
           :(curSecCls==='drift'||curSecCls==='build')&&n>=2?1
+          :WMIX==='int'?(intensity<0.5?1:0)
           :(waveNum%2===0)?1:0;      // every even wave hangs a pod (user call:
                                      // the burst should be a REGULAR sight)
-  let layers=LAYQA?1:(waveNum>=2&&(waveNum%3===2||curSecCls==='bloom')?1:0);
+  let layers=LAYQA?1:(waveNum>=2&&(curSecCls==='bloom'||
+    (WMIX==='int'?(intensity>=0.4&&intensity<0.75):waveNum%3===2))?1:0);
   if(FP&&FP.percFrac<0.03&&!pods)pods=1;  // tonal world: Defender-rich
   pods=Math.max(0,Math.min(pods,n-tanks-1));
   layers=Math.max(0,Math.min(layers,n-tanks-pods-1));
@@ -56624,7 +56648,7 @@ function planWave(){
   // carries spawn TOTALS, which cannot tell a run of eight-strong waves from a
   // run that climbed to them. One row per plan, so the mix can be read against
   // time, section and intensity after the fact.
-  waveLog.push({w:waveNum,t:+songT.toFixed(1),cls:curSecCls,
+  waveLog.push({w:waveNum,t:+songT.toFixed(1),cls:curSecCls,sec:secIdx,
     i:+intensity.toFixed(2),heat:+heat.toFixed(2),lv:layerLvl,
     n,hunters,tanks,pods,layers});
   return {n,hunters,tanks,pods,layers};
@@ -56770,7 +56794,8 @@ function ensureTag(m){
   if(m.userData.tag)return;
   const tag=new THREE.LineLoop(
     new THREE.BufferGeometry().setFromPoints(tagPts),
-    new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:0.45,fog:false}));
+    new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:0.45,
+      fog:false,blending:THREE.AdditiveBlending,depthWrite:false}));
   tag.scale.setScalar(m.userData.tagBase||7);      // bosses wear a bigger box
   scene.add(tag); m.userData.tag=tag;
 }
@@ -57778,6 +57803,7 @@ function advanceRow(){
   macroRing.push(mac);mesoRing.push(mes);
   const mP=macroOut.step(macroRing.pct(mac),1/ROWHZ);
   absP=absLevel(mac);                     // difficulty reads THIS, not the rank
+  secIntSum+=mP; secIntN++;               // the section's own character
   const sP=mesoOut.step(mesoRing.pct(mes),1/ROWHZ);
   mpRing.push(mP);
   if(DYNMAX>1&&globalRow%10===0&&mpRing.a.length>=120){   // 1Hz, after 12s warm-up
@@ -58044,9 +58070,23 @@ function drawRadar(now){
     c.fillStyle=u.type==='item'?(u.kind==='red'?'#ff5ce8':'#55aaff')
                :u.type==='node'?'#55ccff'
                :RADAR_C[u.type]||'#ff5b4b';
-    const r=u.type==='boss'?4.5:u.kind==='leader'?3.2
-           :(u.type==='shell'||u.type==='mine'||u.type==='item')?1.8:2.6;
+    let r=u.type==='boss'?4.5:u.kind==='leader'?3.2
+         :(u.type==='shell'||u.type==='mine'||u.type==='item')?1.8:2.6;
+    // LOCKED ON THE RADAR, without adding a single new mark. A ring or a
+    // second symbol per blip is what makes a minimap unreadable, and this one
+    // already carries a dozen dots in three colour families. So a locked blip
+    // says it the same way its box does: it BURNS. Same family colour, one
+    // pixel wider, and a glow the unlocked ones do not have -- colour stays
+    // "what it is", brightness stays "your relationship to it", on both
+    // surfaces. A missile already running pulses on top of that.
+    if(u.queued||u.claimed){
+      c.shadowColor=c.fillStyle;
+      c.shadowBlur=u.claimed?7+3*Math.sin(now*0.012):7;
+      r+=1;
+      c.globalAlpha=Math.min(1,c.globalAlpha+0.3);
+    }
     c.fillRect(px-r,py-r,r*2,r*2);
+    c.shadowBlur=0;                    // never leaks onto the next blip
   }
   c.restore();
 }
@@ -58696,7 +58736,15 @@ function tick(now,doRender=true){
     else if(vizMode!==2&&u.bzOn){bzWrap(m,false);u.bzOn=false;}
     const bs=(u.base||1)*(1+0.05*beatEnv);   // everything breathes ON the beat
     if(u.flash>0){u.flash-=dt;m.scale.setScalar(bs*(1+u.flash*1.4));}else m.scale.setScalar(bs);
-    if(u.tag){u.tag.position.copy(m.position);u.tag.quaternion.copy(cam.quaternion);
+    if(u.tag){
+      // A BOX NOW MEANS ONE THING: this is yours. It used to appear on every
+      // in-range target, which spent the loudest marker in the game on
+      // "lockable" -- something the target ALREADY says by lighting up out of
+      // its ghost state at the weapons boundary. With the box reserved for
+      // locked and inbound, the box IS the lock indicator, which is what the
+      // HUD counters kept failing to be.
+      u.tag.visible=!!(u.queued||u.claimed);
+      u.tag.position.copy(m.position);u.tag.quaternion.copy(cam.quaternion);
       u.tag.rotation.z=tNow*1.1;
       const tm=u.tag.material;
       // THE BOX WEARS THE OBJECT'S OWN COLOUR, in every state -- not white
@@ -58719,9 +58767,11 @@ function tick(now,doRender=true){
       const nearF=Math.max(0,Math.min(1,
         (m.position.z-WEAPON_Z)/Math.max(1,CAMBACK-WEAPON_Z)));
       tm.color.setHex(lc);
-      if(u.claimed)      tm.opacity=(0.62+0.3*Math.sin(tNow*10))*(0.78+0.22*nearF);
-      else if(u.queued)  tm.opacity=0.82+0.18*nearF;
-      else               tm.opacity=0.45+0.5*nearF;}
+      // Full brightness, and the material blends ADDITIVELY now -- opacity was
+      // already near its ceiling, so the way to make these burn twice as hard
+      // is to let them add to the frame the way the vector terrain does.
+      if(u.claimed)    tm.opacity=(0.78+0.22*Math.sin(tNow*10))*(0.85+0.15*nearF);
+      else if(u.queued)tm.opacity=1;}
     // the weapons-range boundary is VISIBLE on the target: ghosted beyond
     // range, popping to full brightness (flash + blip) on crossing — "lit up"
     // always means "lockable", no hover needed to find out

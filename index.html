@@ -57446,7 +57446,10 @@ function saveScore(){
   try{localStorage.setItem(scoreKey(),JSON.stringify(list));}catch(e){}
   return {list,rank:list.indexOf(entry)};
 }
+let navigating=false;
 function restart(t){
+  navigating=true;      // the fullscreen exit this causes is OURS, not the
+                        // player's -- do not read it as "they turned it off"
   const u=new URL(location.href);
   if(t)u.searchParams.set('track',t); else u.searchParams.delete('track');
   // This is a RELOAD, so the mode has to travel in the URL or every track
@@ -59137,6 +59140,38 @@ const fsExit=document.exitFullscreen||document.webkitExitFullscreen;
 const fsOn=()=>!!(document.fullscreenElement||document.webkitFullscreenElement);
 const standalone=()=>matchMedia('(display-mode:standalone)').matches
                     ||navigator.standalone===true;
+// Full screen does not survive a page load -- the spec drops it when the
+// document unloads -- and starting a level is a RELOAD here (restart(), so
+// every system starts clean). So the INTENT is remembered instead of the
+// state, and re-entered on the far side. It cannot be re-entered on load
+// directly: requestFullscreen needs a user gesture and a fresh page has none.
+// So it waits for the next tap or key, which on a phone is the TAP TO START
+// the reload already needs, and on desktop is the very next input. Same
+// pattern as the autoplay retry: keep the listener until it actually takes.
+const FSKEY='hyper-fs';
+const fsWant=()=>{try{return localStorage.getItem(FSKEY)==='1'}catch(e){return false}};
+const fsSetWant=v=>{try{v?localStorage.setItem(FSKEY,'1')
+                        :localStorage.removeItem(FSKEY)}catch(e){}};
+function armFullRestore(){
+  if(!fsReq||!fsWant()||standalone())return;
+  const go=()=>{
+    if(!fsWant()){clean();return;}          // turned off in the meantime
+    if(fsOn()){clean();return;}
+    try{const r=fsReq.call(fsRoot);
+        if(r&&r.catch)r.catch(()=>{});      // refused: the next gesture retries
+    }catch(e){}
+    if(fsOn())clean();
+  };
+  const clean=()=>{removeEventListener('pointerdown',go);
+                   removeEventListener('keydown',go);};
+  addEventListener('pointerdown',go); addEventListener('keydown',go);
+}
+armFullRestore();
+// Track what the player actually ends up in, so leaving by Esc or the browser's
+// own control is remembered as "off" too -- but NOT the exit that a reload
+// causes, which is why restart() sets `navigating` first.
+for(const ev of ['fullscreenchange','webkitfullscreenchange'])
+  addEventListener(ev,()=>{ if(!navigating)fsSetWant(fsOn()); buildMenu(); });
 function toggleFull(){
   if(!fsReq){                       // iPhone Safari: tell them how, honestly
     fsNote.innerHTML='iPhone Safari cannot go full screen from a page. '
@@ -59144,8 +59179,9 @@ function toggleFull(){
       +'no browser bars at all.';
     return;
   }
+  const want=!fsOn();
   try{
-    const r=fsOn()? fsExit.call(document) : fsReq.call(fsRoot);
+    const r=want? fsReq.call(fsRoot) : fsExit.call(document);
     // These return a PROMISE, and it REJECTS whenever the browser declines --
     // no user gesture, an embedding policy, a locked-down context. An
     // unhandled rejection posts a row to game-err.jsonl, and the ABSENCE of
@@ -59153,6 +59189,7 @@ function toggleFull(){
     // player can simply shrug at must never look like a crash. Caught while
     // testing: "TypeError: Permissions check failed".
     if(r&&r.catch)r.catch(e=>console.warn('fullscreen refused',e.message));
+    fsSetWant(want);                // remember the INTENT, not the state
   }catch(e){ console.warn('fullscreen refused',e.message); }
   setTimeout(buildMenu,120);        // relabel once the state settles
 }

@@ -4,6 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Hypersonic: don't just play the music let the music play you.</title>
+<!-- iPhone Safari has no Fullscreen API (iPad does). The ONLY way to get rid
+     of the URL bar and the tab strip on a phone is Add to Home Screen, and
+     these are what make that launch chrome-free instead of reopening Safari.
+     black-translucent puts the game under the status bar; viewport-fit=cover
+     above is what then keeps the notch out of the HUD. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Hypersonic">
+<meta name="theme-color" content="#010402">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%2307090c'/><path d='M16 4 L27 28 L16 22 L5 28 Z' fill='%2333ff55'/></svg>">
 <style>
   /* the arcade typeface: Press Start 2P (SIL OFL, vendored) — a real 8-bit
@@ -95,6 +105,10 @@
     width:100%}
   #menu .foot{color:#3c5f52;font-size:8px;margin-top:24px;letter-spacing:0.08em;
     font-family:'Press Start 2P',ui-monospace,monospace}
+  #fsnote{color:#8fc4c6;font-size:8px;line-height:2;margin-top:16px;
+    max-width:min(370px,84vw);text-align:center;
+    font-family:'Press Start 2P',ui-monospace,monospace}
+  #fsnote b{color:#33ff55;font-weight:400}
   /* the ABOUT card: the Field Manual cut to what fits under cabinet glass.
      Press Start 2P at 9px needs the line-height or it becomes a wall. */
   #about .card{max-width:min(620px,94vw);width:100%;
@@ -258,6 +272,30 @@
      element added after it was written. `display` keeps it clear of the
      cinematic blackout, which drives `visibility` on the same elements. */
   .menuhide{display:none!important}
+  /* ---- COMPACT HUD, for a viewport that is SHORT ------------------------
+     A landscape phone is 390-430px tall. At full size the radar and the orb
+     take 160px off the top (y 12-172), the score column runs to y 180, and
+     the thumb controls own the bottom 130 -- so the world, which is the whole
+     point, was playing in a letterbox with about a third of the screen left.
+     Everything here just shrinks; nothing moves to a new corner, because the
+     corners are the layout and muscle memory should survive rotation.
+     Keyed on HEIGHT, because height is the actual constraint -- an iPad in
+     landscape (744+) keeps the full-size HUD, and so does a desktop window.
+     The canvases keep their 160px backing store and are scaled DOWN by CSS,
+     which stays crisp on a phone's 3x display. */
+  @media (max-height:500px){
+    #radar,#viz{width:92px;height:92px;top:6px}
+    #radar{left:6px}
+    #viz{right:6px}
+    #hiscore{top:4px;font-size:7px}
+    #bigscore{top:15px;font-size:20px}
+    #shield{top:39px;width:190px;height:7px;border-radius:4px}
+    #lvl{top:50px;font-size:9px;letter-spacing:0.45em}
+    #od{top:62px;font-size:9px;letter-spacing:0.4em}
+    #zone{top:80px}
+    #zone .cls{font-size:12px;letter-spacing:0.18em}
+    #zone .idx{font-size:7px;margin-top:5px}
+  }
   canvas{display:block}
 </style>
 </head>
@@ -265,6 +303,7 @@
 <div id="menu"><h1>HYPERSONIC</h1>
   <div class="sub">HOLD TO LOCK &middot; RELEASE ON THE BEAT</div>
   <div id="menubody"></div>
+  <div id="fsnote"></div>
   <div class="foot">ESC &mdash; MENU</div></div>
 <div id="about"><div class="card">
   <h2>THE SONG IS THE LEVEL</h2>
@@ -4439,6 +4478,40 @@ function hidePicker(){picker.style.display='none';hudForOverlay(false);}
 // the menu and ESC folding the game back into it.
 const menuEl=document.getElementById('menu'), aboutEl=document.getElementById('about');
 const menuBody=document.getElementById('menubody');
+const fsNote=document.getElementById('fsnote');
+// ---- full screen, and the one platform that will not give it -------------
+// iPad, Android and desktop have the Fullscreen API. iPhone Safari DOES NOT
+// -- requestFullscreen simply is not there, and no page can take the URL bar
+// and the tab strip away by itself. Add to Home Screen is the actual answer
+// on a phone, and the apple-mobile-web-app meta tags in the head are what
+// make that launch chrome-free. So: use the API where it exists, and where it
+// does not, say the true thing instead of pretending or silently doing
+// nothing.
+const fsRoot=document.documentElement;
+const fsReq=fsRoot.requestFullscreen||fsRoot.webkitRequestFullscreen;
+const fsExit=document.exitFullscreen||document.webkitExitFullscreen;
+const fsOn=()=>!!(document.fullscreenElement||document.webkitFullscreenElement);
+const standalone=()=>matchMedia('(display-mode:standalone)').matches
+                    ||navigator.standalone===true;
+function toggleFull(){
+  if(!fsReq){                       // iPhone Safari: tell them how, honestly
+    fsNote.innerHTML='iPhone Safari cannot go full screen from a page. '
+      +'Tap <b>Share</b>, then <b>Add to Home Screen</b> &mdash; it opens with '
+      +'no browser bars at all.';
+    return;
+  }
+  try{
+    const r=fsOn()? fsExit.call(document) : fsReq.call(fsRoot);
+    // These return a PROMISE, and it REJECTS whenever the browser declines --
+    // no user gesture, an embedding policy, a locked-down context. An
+    // unhandled rejection posts a row to game-err.jsonl, and the ABSENCE of
+    // that file is this project's proof of a clean run, so a refusal the
+    // player can simply shrug at must never look like a crash. Caught while
+    // testing: "TypeError: Permissions check failed".
+    if(r&&r.catch)r.catch(e=>console.warn('fullscreen refused',e.message));
+  }catch(e){ console.warn('fullscreen refused',e.message); }
+  setTimeout(buildMenu,120);        // relabel once the state settles
+}
 const isOpen=el=>el.style.display==='flex';
 // Every overlay screen takes the HUD with it. hudAll is the one list of what
 // the HUD IS, so this asks it rather than naming the elements again -- plus
@@ -4473,12 +4546,16 @@ function buildMenu(){
   menuBody.textContent='';
   const add=(label,fn)=>{const b=document.createElement('button');
     b.textContent=label;b.onclick=fn;menuBody.append(b);};
+  fsNote.textContent='';
+  // Already chrome-free (launched from the home screen): nothing to offer.
+  const wantFs=!standalone();
   if(paused){
     // Mid-run the menu is a pause screen, so it offers the way BACK first and
     // then the two ways out. It offers the OTHER mode rather than both --
     // "COMBAT" while already in combat is a button that means nothing.
     add('RESUME',()=>closeMenu());
     add('ABOUT',()=>showAbout());
+    if(wantFs)add(fsOn()?'EXIT FULL SCREEN':'FULL SCREEN',toggleFull);
     add(PASSENGER?'SWITCH TO COMBAT':'SWITCH TO PASSENGER',()=>{
       setMode(PASSENGER?'combat':'passenger');
       restartCurrent();             // a mode change needs a clean world, and
@@ -4489,6 +4566,7 @@ function buildMenu(){
     add('ABOUT',()=>showAbout());
     add('COMBAT',()=>chooseMode('combat'));
     add('PASSENGER',()=>chooseMode('passenger'));
+    if(wantFs)add(fsOn()?'EXIT FULL SCREEN':'FULL SCREEN',toggleFull);
   }
 }
 // Picking a mode with nothing loaded needs no reload: nothing has spawned yet,

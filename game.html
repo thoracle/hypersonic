@@ -170,26 +170,21 @@
     font-size:11px;letter-spacing:0.5em;pointer-events:none}
   #od span{color:#3a1038}
   #od span.on{color:#ff3ce0;text-shadow:0 0 8px #ff3ce0}
-  /* LOCK ROW. Rez puts the lock count in the centre of the reticle and so do
-     we -- but the reticle is the thing you STOP looking at once you have swept
-     and moved on, which is exactly the complaint. This is the same number
-     somewhere that holds still. It also shows CAPACITY while empty, which Rez
-     never needed to: a player who taps instead of holding never accumulates a
-     lock, so never sees a count, so never learns that locks stack. Eight empty
-     slots sitting there is the only thing that teaches the mechanic before you
-     use it. */
-  #lock{position:fixed;top:150px;left:50%;transform:translateX(-50%);z-index:2;
+  /* MISSILES IN FLIGHT. The first cut of this row repeated the LOCK count --
+     which the reticle already carries, Rez-style, so it said nothing new. The
+     number the reticle genuinely cannot give you is what is still RUNNING
+     after you released and looked somewhere else: the volley is away, the
+     reticle has moved on, and until now nothing on screen said how much of it
+     was still in the air. */
+  #trk{position:fixed;top:150px;left:50%;transform:translateX(-50%);z-index:2;
     font-family:'Press Start 2P',ui-monospace,monospace;pointer-events:none;
     font-size:9px;letter-spacing:0.12em;white-space:nowrap;
     display:flex;align-items:center;gap:9px}
-  #lock .lbl{color:#3f6e57;min-width:64px;text-align:right}
-  #lock.held .lbl{color:#33ff55;text-shadow:0 0 8px #33ff55}
-  #lock.trk .lbl{color:#ffd76a;text-shadow:0 0 8px #ffd76a}
-  #lock.max .lbl{color:#ffd76a;text-shadow:0 0 10px #ffd76a}
-  #lock .pips{letter-spacing:0.2em;font-size:13px;line-height:1}
-  #lock .pips i{font-style:normal;color:#173423}
-  #lock .pips i.on{color:#33ff55;text-shadow:0 0 8px #33ff55}
-  #lock .pips i.fly{color:#ffd76a;text-shadow:0 0 8px #ffd76a}
+  #trk .lbl{color:#26483a}
+  #trk .n{color:#26483a;font-variant-numeric:tabular-nums;min-width:2ch;
+    text-align:left}
+  #trk.on .lbl{color:#33ff55;text-shadow:0 0 8px #33ff55}
+  #trk.on .n{color:#eaffef;text-shadow:0 0 10px #33ff55}
   /* SECTION BANNER, zone-entrance style. It used to be a world-space popup
      drifting past with the terrain, which made the one label that describes
      the WHOLE passage read like a score pop. Now it is stationary DOM at the
@@ -312,9 +307,7 @@
     #shield{top:39px;width:190px;height:7px;border-radius:4px}
     #lvl{top:50px;font-size:9px;letter-spacing:0.45em}
     #od{top:62px;font-size:9px;letter-spacing:0.4em}
-    #lock{top:76px;font-size:7px;gap:6px}
-    #lock .lbl{min-width:52px}
-    #lock .pips{font-size:10px;letter-spacing:0.16em}
+    #trk{top:76px;font-size:7px;gap:6px}
     #zone{top:94px}
     #zone .cls{font-size:12px;letter-spacing:0.18em}
     #zone .idx{font-size:7px;margin-top:5px}
@@ -407,7 +400,7 @@
 <div id="hud">select a track</div><div id="score"></div><div id="bigscore">0</div>
 <div id="shield"><div id="shieldfill"></div></div>
 <div id="lvl"></div><div id="od"></div>
-<div id="lock"><span class="lbl">LOCK</span><span class="pips"></span></div>
+<div id="trk"><span class="lbl">TRACKING</span><span class="n">0</span></div>
 <div id="zone"><span class="cls"></span><span class="idx"></span></div>
 <div id="dmg"></div>
 <canvas id="radar" width="160" height="160"></canvas>
@@ -842,6 +835,53 @@ const macroE=ema(15), mesoE=ema(1.5), macroOut=ema(2.0), mesoOut=ema(0.6);
 const ring=(n)=>({a:[],n,push(v){this.a.push(v);if(this.a.length>this.n)this.a.shift();},
   pct(v){if(this.a.length<8)return 0.5;let c=0;for(const x of this.a)if(x<=v)c++;return c/this.a.length;}});
 const macroRing=ring(900), mesoRing=ring(900);
+// ---------------- ABSOLUTE macro level (the tide fix, for DIFFICULTY) ------
+// macroOut is a RANK PERCENTILE inside a trailing 90s window, and a trailing
+// percentile is a TREND detector, not a level detector: an EMA spends most of
+// its life chasing, music builds slowly and drops fast, so the rank sits
+// pinned near 1.0 far more than near 0. Measured across the old set, the
+// terrain's macro base was at maximum 25-70% of every runtime. Difficulty was
+// reading that same signal -- which is what "targets don't feel progressively
+// harder, just random" actually measures: waves planned near maximum almost
+// always, so a quiet passage fields nearly what a chorus does.
+// This is the fix the TIDE already got: read ABSOLUTE energy, scaled by the
+// range THIS TRACK actually uses. Songs ramp up and down; now the field does
+// too, and it does it from the music rather than from a clock.
+// The bounds are learned after the fade-in and then creep inward very slowly,
+// so one freak peak cannot flatten the rest of the song permanently.
+// MEASURED AND REFUTED FOR DIFFICULTY, 28 Aug. Kept behind ?absdiff=1 with
+// the numbers, exactly like the dyn-stretch machinery above, because the idea
+// is reasonable, the reasoning was sound, and the data still said no. Both
+// signals are sampled every run (dna.mp vs dna.ap, pin.hi vs apin.hi), so the
+// next attempt starts from evidence instead of from this comment.
+//
+//   track            rank pin.hi -> ABS pin.hi      rank p50 -> ABS p50
+//   cut-and-run          0.006      0.093              0.48     0.61
+//   ready-aim-fire       0.342      0.776              0.90     0.98
+//
+// Why it fails, and it is not the constants: normalizing to the track's OWN
+// range is a correct measurement and a bad difficulty driver. A track that is
+// loud nearly throughout -- ready-aim-fire, which check_track independently
+// flags at surge share 0.86, "one gear" -- sits near its own maximum nearly
+// always, so absolute normalization faithfully reports "maximum, constantly".
+// The trailing rank at least manufactures variation from a flat track. So the
+// signal was never the thing making that track monotonous; the TRACK is, and
+// no remapping of it can invent a shape the music does not have.
+// The honest read of "targets don't feel progressively harder": on a track
+// that HAS shape the rank already delivers it (cut-and-run, p50 0.48, sd
+// 0.34, pinned at max 0.6% of the time). Look at what varies WITHIN a wave
+// before remapping what sizes it.
+const ABSDIFF=!!qs.get('absdiff');
+let absLo=1e9, absHi=-1e9, absP=0.5;
+function absLevel(mac){
+  if(songT<12)return 0.5;                 // pre-warm-up: assume the middle
+  if(mac<absLo)absLo=mac;
+  if(mac>absHi)absHi=mac;
+  const creep=0.00004;                    // ~0.4%/s at 10Hz back toward now
+  absLo+=(mac-absLo)*creep; absHi+=(mac-absHi)*creep;
+  const span=Math.max(0.05,absHi-absLo);  // floor: a genuinely flat track must
+  return Math.max(0,Math.min(1,(mac-absLo)/span));   // not become all-maximum
+}
 
 // ---------------- P1: dynamic-range stretch ----------------
 // The macro percentile is re-smoothed (macroOut, tau 2s) so the terrain does
@@ -864,7 +904,7 @@ function expand(x,g){
 // ---------------- world-DNA telemetry ----------------
 // Ship nothing on vibes: every world-shaping change is graded against these.
 const TALLWU=40;                         // "tall terrain" threshold, world units
-const dna={camY:[],row:[],mp:[],gain:[]};
+const dna={camY:[],row:[],mp:[],ap:[],gain:[]};
 const strRing=ring(300);
 const pitchRing=ring(41);
 let spine=X/2, lastT=-9, lastP=-9;
@@ -1969,7 +2009,8 @@ let wavePlan=null, waveHunters=0, waveTanks=0, wavePods=0, waveLayers=0;
 function planWave(){
   const perc=percRate.length, ton=tonalRate.length;
   const total=Math.max(1,perc+ton);
-  const intensity=Math.max(0,Math.min(1,macroOut.y*(0.8+heat*0.4)));
+  // DEFAULT OFF, and MEASURED before it was believed -- see absLevel().
+  const intensity=Math.max(0,Math.min(1,(ABSDIFF?absP:macroOut.y)*(0.8+heat*0.4)));
   let n=Math.max(2,Math.min(P.QUEUE_MAX,Math.round(2+intensity*6)));
   // the LAYER thickens the field: every 3 analyzed nodes buys the world
   // one more slot per wave (Rez's layers escalate with player progress)
@@ -2740,12 +2781,17 @@ function dnaSummary(){
   if(!dna.row.length)return null;
   const g=dna.gain;
   return {n:dna.row.length, camY:st(dna.camY), row:st(dna.row), mp:st(dna.mp),
+    ap:st(dna.ap),                       // the ABSOLUTE level, side by side
     tall:+(dna.row.filter(v=>v>TALLWU).length/dna.row.length).toFixed(3),
     // the monotony that actually bites: the percentile PINNED at an end of its
     // range. A stretch of terrain held at max height is as dull as a flat one,
     // and spread alone cannot see it (0..1 with both ends pinned looks great).
     pin:{hi:+(dna.mp.filter(v=>v>=0.97).length/dna.mp.length).toFixed(3),
          lo:+(dna.mp.filter(v=>v<=0.03).length/dna.mp.length).toFixed(3)},
+    // ...and the same measure for the signal difficulty now reads, so the two
+    // can be compared in ONE run instead of across two builds.
+    apin:{hi:+(dna.ap.filter(v=>v>=0.97).length/Math.max(1,dna.ap.length)).toFixed(3),
+          lo:+(dna.ap.filter(v=>v<=0.03).length/Math.max(1,dna.ap.length)).toFixed(3)},
     gain:{mean:+(g.reduce((s,v)=>s+v,0)/g.length).toFixed(2),
           max:+Math.max(...g).toFixed(2)},
     dynmax:DYNMAX, target:DYN_TARGET};
@@ -2764,6 +2810,7 @@ function flushShots(final){
       rhythm:{best:bestRhythm,on:rhythmOn,rel:rhythmRel},
       sea:{max:+seaMax.toFixed(1),now:+seaLevel.toFixed(1),
         macro:+macroE.y.toFixed(3)},
+      abs:{lo:+absLo.toFixed(3),hi:+absHi.toFixed(3),p:+absP.toFixed(3)},
       fp:FP, dna:dnaSummary(), flocks:flockSizes,
       // Why did the level end? A run that finishes in seconds is either the
       // ended event arriving early or el.duration lying, and without these
@@ -3155,6 +3202,7 @@ function advanceRow(){
   const mes=Math.max(0,mesoE.step(e,1/ROWHZ)-mac);
   macroRing.push(mac);mesoRing.push(mes);
   const mP=macroOut.step(macroRing.pct(mac),1/ROWHZ);
+  absP=absLevel(mac);                     // difficulty reads THIS, not the rank
   const sP=mesoOut.step(mesoRing.pct(mes),1/ROWHZ);
   mpRing.push(mP);
   if(DYNMAX>1&&globalRow%10===0&&mpRing.a.length>=120){   // 1Hz, after 12s warm-up
@@ -3232,7 +3280,8 @@ function advanceRow(){
     if(playing&&songT>5){
       let rm=0; for(let x=0;x<X;x++){const h=H[fs*X+x];if(h>rm)rm=h;}
       dna.row.push(+(rm*HMAX).toFixed(1)); dna.camY.push(+camY.toFixed(1));
-      dna.mp.push(+mP.toFixed(3)); dna.gain.push(+dynG.toFixed(2));
+      dna.mp.push(+mP.toFixed(3)); dna.ap.push(+absP.toFixed(3));
+      dna.gain.push(+dynG.toFixed(2));
     }
   }
   refreshMesh();
@@ -3433,15 +3482,15 @@ function drawRadar(now){
 // MIRROR each other across the top of the screen, so one of them surviving a
 // cinematic blackout reads as a bug rather than as a choice.
 const hudAll=['hud','score','bigscore','shield','lvl','od','hiscore','radar',
-              'viz','touchui','zone','lock']
+              'viz','touchui','zone','trk']
   .map(id=>document.getElementById(id));
 // Deliberately NOT in hudAll. hudAll is what a cinematic and PASSENGER mode
 // take away; the pause button follows the cinematic (a cutscene gets a clean
 // frame) but NOT passenger, because on a phone it is the only way out of a run.
 const pauseEl=document.getElementById('pauseBtn');
-const lockEl=document.getElementById('lock');
-const lockLbl=lockEl.querySelector('.lbl'), lockPips=lockEl.querySelector('.pips');
-let lockShown={q:-1,f:-1,c:-1};
+const trkEl=document.getElementById('trk');
+const trkNum=trkEl.querySelector('.n');
+let trkShown=-1;
 let hudShown=true;
 
 // ---------------- sim loop ----------------
@@ -4080,9 +4129,18 @@ function tick(now,doRender=true){
       const tm=u.tag.material;
       // pickups lock in ITEM-BLUE, hostiles in red — same states, two hues
       const lc=(u.type==='item'||u.type==='node')?FRIENDLY:TAGLOCK;
-      if(u.claimed){tm.color.setHex(lc);tm.opacity=0.6+0.35*Math.sin(tNow*10);}
-      else if(u.queued){tm.color.setHex(lc);tm.opacity=0.95;}
-      else{tm.color.setHex(0xffffff);tm.opacity=0.45;}}
+      // ...and every state RAMPS with proximity. The box used to burn at one
+      // fixed brightness for the whole approach, so the single most useful
+      // thing about a target -- how close it is to being your problem -- was
+      // the one thing its marker did not say. 0 at the weapons-range boundary,
+      // 1 at the ship. The state hierarchy is preserved at every distance: a
+      // locked box is always brighter than an unlocked one beside it.
+      const nearF=Math.max(0,Math.min(1,
+        (m.position.z-WEAPON_Z)/Math.max(1,CAMBACK-WEAPON_Z)));
+      if(u.claimed){tm.color.setHex(lc);
+        tm.opacity=(0.45+0.3*Math.sin(tNow*10))*(0.7+0.3*nearF)+0.18;}
+      else if(u.queued){tm.color.setHex(lc);tm.opacity=0.62+0.38*nearF;}
+      else{tm.color.setHex(0xffffff);tm.opacity=0.22+0.46*nearF;}}
     // the weapons-range boundary is VISIBLE on the target: ghosted beyond
     // range, popping to full brightness (flash + blip) on crossing — "lit up"
     // always means "lockable", no hover needed to find out
@@ -4156,20 +4214,14 @@ function tick(now,doRender=true){
     for(const e of hudAll)
       e.style.visibility=(hudWant&&!PASSENGER)?'visible':'hidden';
     pauseEl.style.visibility=hudWant?'visible':'hidden';}
-  // ---- the lock row: the reticle's count, somewhere that holds still ----
-  // Repainted only when the numbers move; innerHTML every frame on a phone is
-  // not free.
-  {
-    const nq=queue.length, nf=pending.length, cap=P.QUEUE_MAX;
-    if(nq!==lockShown.q||nf!==lockShown.f||cap!==lockShown.c){
-      lockShown={q:nq,f:nf,c:cap};
-      let pips='';
-      for(let i=0;i<cap;i++)
-        pips+=`<i class="${i<nq?'on':i<nq+nf?'fly':''}">${i<nq?'\u25c6':'\u25c7'}</i>`;
-      lockPips.innerHTML=pips;
-      lockLbl.textContent=nq>=cap?'MAX':nq>0?'LOCKED':nf>0?'TRACKING':'LOCK';
-      lockEl.className=nq>=cap?'max':nq>0?'held':nf>0?'trk':'';
-    }
+  // ---- missiles in the air: the one count the reticle cannot give you ----
+  // `missiles` is flight, not intent -- `pending` is still part of the LOCK
+  // pipeline (swept, waiting to be granted on the music grid), so it is not
+  // "fired" and does not belong in this number. Repainted only when it moves.
+  if(missiles.size!==trkShown){
+    trkShown=missiles.size;
+    trkNum.textContent=trkShown;
+    trkEl.className=trkShown>0?'on':'';
   }
   const targetScale=(holdLock||hoverNear||hoverItem||queue.length>0||pending.length>0)?1.25:1.0;
   reticleScale+=(targetScale-reticleScale)*(1-Math.exp(-dt/0.08));

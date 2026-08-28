@@ -304,6 +304,19 @@
     #zone .cls{font-size:12px;letter-spacing:0.18em}
     #zone .idx{font-size:7px;margin-top:5px}
   }
+  /* DEVICE CHECK (?diag=1). The two things left in the real-device pass --
+     does the second level's audio actually start, and does double-tapping FIRE
+     zoom -- both have objective answers the tester cannot see: a play()
+     rejection name, and visualViewport.scale. This prints them, and records
+     the MAX zoom ever seen so a pinch that snaps back still leaves evidence.
+     Deliberately not in the menu: it is an instrument, not a feature. */
+  #diag{position:fixed;left:6px;bottom:6px;z-index:8;display:none;
+    font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:10px;
+    line-height:1.6;color:#9fe8ff;background:#010402ee;
+    border:1px solid #33ff5566;padding:6px 8px;white-space:pre;
+    pointer-events:none;text-shadow:none;max-width:92vw;overflow:hidden}
+  #diag b{color:#33ff55;font-weight:400}
+  #diag .bad{color:#ff6a5a}
   canvas{display:block}
 </style>
 </head>
@@ -402,6 +415,7 @@
 <button id="fireBtn">FIRE</button><button id="odBtn">OD</button></div>
 <button id="pauseBtn">II</button>
 <div id="tapstart"><span>TAP TO START</span><em id="tapname"></em></div>
+<div id="diag"></div>
 <div id="rotate">ROTATE TO LANDSCAPE
   <small>the horizon needs the width</small>
   <small class="lock">Still portrait after turning the phone? Open Control
@@ -509,6 +523,11 @@ const DYNMAX=DYNQ===null?1:+DYNQ;        // DEFAULT OFF: measured and refuted --
 // failed. Generous, because a cold CDN on a phone is slow -- but FINITE,
 // because the alternative is a wedged `starting` flag and a dead retry.
 const PLAY_WAIT=+qs.get('playwait')||8;
+const DIAG=!!qs.get('diag');
+// Evidence for the real-device pass. startOutcome is the ACCURATE autoplay
+// signal (the play() rejection name); zoomMax survives a pinch that springs
+// back, which a screenshot after the fact would not.
+let startOutcome='(not started)', zoomMax=1;
 const SPEED=+qs.get('speed')||60;        // world units / s
 const T=+qs.get('delay')||6;             // audio delay (s) -> horizon = T*SPEED
 const HORIZON=T*SPEED;
@@ -823,8 +842,35 @@ function tick16(after){
 // ---------------- causal terrain state (identical to stream.html) ----------------
 const ema=(tau)=>({y:0,seed:false,step(v,dt){this.y=this.seed?this.y+(v-this.y)*(1-Math.exp(-dt/tau)):(this.seed=true,v);return this.y;}});
 const macroE=ema(15), mesoE=ema(1.5), macroOut=ema(2.0), mesoOut=ema(0.6);
+// A RANK IS UNDEFINED WITHOUT SPREAD, and this one used to invert at its own
+// edge case. `x<=v` counts TIES as "below", so a ring of identical values
+// scored every element at 1.0 -- digital silence, the quietest possible input,
+// came out as the LOUDEST possible reading: maximum terrain height, sections
+// classed SURGE, and maximum-size waves, all out of nothing at all. It is not
+// only exact silence either: a ring of 880 zeros and 20 loud samples scored
+// the ZEROS at 0.978.
+// Two changes. MIDRANK, so ties split their range instead of one end claiming
+// all of it (a flat ring now reads 0.5, which is the only honest answer).
+// And a DEGENERATE-SPREAD guard, because a percentile over a range narrower
+// than RANK_FLAT is amplifying float noise into full-scale swings -- the same
+// failure already written down as "rank normalization amplifies tiny wiggles
+// into full-range jumps".
+const RANK_FLAT=+qs.get('rankflat')||0.004;
 const ring=(n)=>({a:[],n,push(v){this.a.push(v);if(this.a.length>this.n)this.a.shift();},
-  pct(v){if(this.a.length<8)return 0.5;let c=0;for(const x of this.a)if(x<=v)c++;return c/this.a.length;}});
+  spread(){let lo=Infinity,hi=-Infinity;
+    for(const x of this.a){if(x<lo)lo=x;if(x>hi)hi=x;}
+    return this.a.length?hi-lo:0;},
+  pct(v){
+    const N=this.a.length;
+    if(N<8)return 0.5;
+    let lt=0,eq=0,lo=Infinity,hi=-Infinity;
+    for(const x of this.a){
+      if(x<v)lt++; else if(x===v)eq++;
+      if(x<lo)lo=x; if(x>hi)hi=x;
+    }
+    if(hi-lo<RANK_FLAT)return 0.5;
+    return (lt+0.5*eq)/N;
+  }});
 const macroRing=ring(900), mesoRing=ring(900);
 // ---------------- ABSOLUTE macro level (the tide fix, for DIFFICULTY) ------
 // macroOut is a RANK PERCENTILE inside a trailing 90s window, and a trailing
@@ -874,6 +920,15 @@ const ABSDIFF=!!qs.get('absdiff');
 //    music is doing, which is a rotation, not an escalation.
 const WSIZE=qs.get('wsize')||'';    // 'sec' = candidate A
 const WMIX=qs.get('wmix')||'';      // 'int' = candidate B
+// MEASURED, KEPT, ON BY DEFAULT (?prog=0 disables). cut-and-run: mean wave
+// size 2.88->4.00 in the base run across halves, 3.80->5.30 with the floor,
+// and minimum-size waves fell from 10 of 16 to 7 of 20 -- the quiet stretches
+// late in a track stop being as empty as the quiet stretches early in it,
+// which is the escalation. Section structure survives it intact (eta2 0.962
+// -> 0.965), so the level still modulates; it just does it above a rising
+// floor. On ready-aim-fire it is a NO-OP because that track already plans
+// max-size waves throughout -- correct, not a failure: nothing to lift.
+const PROG=qs.get('prog')!=='0';
 let absLo=1e9, absHi=-1e9, absP=0.5;
 // Running mean of the rank inside the CURRENT section: the section's own
 // character, stable for its whole length, rather than whatever the instant
@@ -881,6 +936,30 @@ let absLo=1e9, absHi=-1e9, absP=0.5;
 // still one or two samples and noisier than the instant it replaces.
 let secIntSum=0, secIntN=0;
 const secMeanInt=()=>secIntN>=20?secIntSum/secIntN:secEntryInt;
+
+// ---------------- PROGRESSION: an INTEGRAL, not a level -------------------
+// Every difficulty signal in the game so far reads the music's CURRENT state,
+// so the level can only oscillate exactly as the track does -- and the track
+// intake actively selects for oscillation (check_track rule 1 demands a
+// 20-25s cycle and `surge lateness` fails anything that arcs). A level that
+// faithfully follows an oscillation cannot escalate. Measured: wave size is
+// already 87-99% explained by which section you are in, so the planner is not
+// the problem; nothing ACCUMULATES.
+// So: energy delivered SO FAR, against what this track could have delivered by
+// now at its own peak rate. Not a clock -- normalizing by the running MEAN
+// collapses algebraically to songT/duration, which is why the peak rate is the
+// denominator. A loud passage advances it fast, a quiet one barely at all, and
+// a mellow track never reaches the top of the range because it never asked to.
+// Ratcheted monotone: absHi grows as the track reveals itself, and progress
+// the player has already earned must not be taken back by a late louder peak.
+let eSum=0, progP=0;
+function progLevel(){
+  const dur=(el&&el.duration>10)?el.duration:180;
+  const cap=Math.max(1e-4,absHi)*dur;
+  const p=Math.max(0,Math.min(1,eSum/cap));
+  if(p>progP)progP=p;               // ratchet: earned pressure does not recede
+  return progP;
+}
 function absLevel(mac){
   if(songT<12)return 0.5;                 // pre-warm-up: assume the middle
   if(mac<absLo)absLo=mac;
@@ -912,7 +991,7 @@ function expand(x,g){
 // ---------------- world-DNA telemetry ----------------
 // Ship nothing on vibes: every world-shaping change is graded against these.
 const TALLWU=40;                         // "tall terrain" threshold, world units
-const dna={camY:[],row:[],mp:[],ap:[],gain:[]};
+const dna={camY:[],row:[],mp:[],ap:[],gain:[],spread:[]};
 const strRing=ring(300);
 const pitchRing=ring(41);
 let spine=X/2, lastT=-9, lastP=-9;
@@ -1505,6 +1584,30 @@ const ghostCulls={};   // rule-1 violations caught live (see the enemy loop)
 // eye's range cue, and a 2x cross-section difference made cubes read as
 // half their true distance
 const eGeo=new THREE.BoxGeometry(6,6,6);
+// THE BOXES WERE THIN, NOT DIM, and that is why raising opacity three times
+// did nothing. They were LineLoops, and WebGL renders LineBasicMaterial at ONE
+// PIXEL no matter what linewidth says -- the reticle 200 lines up already says
+// exactly this and solves it with a canvas texture. A 1px outline at full
+// alpha is still a 1px outline. So the tag is drawn the same way the reticle
+// is: a thick stroke baked into a texture, tinted per family, additive.
+const tagCv=document.createElement('canvas');tagCv.width=tagCv.height=128;
+const tagTex=new THREE.CanvasTexture(tagCv);
+{
+  const c=tagCv.getContext('2d');
+  const rr=(x,y,w,h,r)=>{c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);
+    c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();};
+  // corner BRACKETS rather than a closed box: less ink on a crowded field,
+  // and it reads as a targeting frame instead of a sticker
+  c.lineCap='round';
+  const L=30, m=16, M=128-16;
+  for(const [x,y,dx,dy] of [[m,m,1,1],[M,m,-1,1],[m,M,1,-1],[M,M,-1,-1]]){
+    for(const [w,col] of [[13,'rgba(0,0,0,0.85)'],[7,'#ffffff']]){
+      c.lineWidth=w;c.strokeStyle=col;
+      c.beginPath();c.moveTo(x+dx*L,y);c.lineTo(x,y);c.lineTo(x,y+dy*L);c.stroke();
+    }
+  }
+  tagTex.needsUpdate=true;
+}
 const tagPts=roundedRectPoints(1,0.15,3);
 // wave spawning: at most QUEUE_MAX targets per wave, and the next wave only
 // opens once the field is completely clear — every wave is fully clearable
@@ -2022,6 +2125,10 @@ function planWave(){
   const lvl=ABSDIFF?absP:(WSIZE==='sec'?secMeanInt():macroOut.y);
   const intensity=Math.max(0,Math.min(1,lvl*(0.8+heat*0.4)));
   let n=Math.max(2,Math.min(P.QUEUE_MAX,Math.round(2+intensity*6)));
+  // The FLOOR rises with everything the track has spent so far; the section
+  // still decides how far ABOVE the floor this wave sits. Escalation and
+  // modulation at the same time, both of them out of the music.
+  if(PROG)n=Math.max(n,2+Math.round(progLevel()*4));
   // the LAYER thickens the field: every 3 analyzed nodes buys the world
   // one more slot per wave (Rez's layers escalate with player progress)
   n=Math.min(P.QUEUE_MAX,n+Math.floor(layerLvl/3));
@@ -2074,6 +2181,7 @@ function planWave(){
   // run that climbed to them. One row per plan, so the mix can be read against
   // time, section and intensity after the fact.
   waveLog.push({w:waveNum,t:+songT.toFixed(1),cls:curSecCls,sec:secIdx,
+    prog:+progLevel().toFixed(3),
     i:+intensity.toFixed(2),heat:+heat.toFixed(2),lv:layerLvl,
     n,hunters,tanks,pods,layers});
   return {n,hunters,tanks,pods,layers};
@@ -2217,11 +2325,13 @@ const ENEMYRED=0xff3b3b, ENEMYRED_EM=0x5c0f0f;
 const TAGLOCK=0xff5544;
 function ensureTag(m){
   if(m.userData.tag)return;
-  const tag=new THREE.LineLoop(
-    new THREE.BufferGeometry().setFromPoints(tagPts),
-    new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:0.45,
-      fog:false,blending:THREE.AdditiveBlending,depthWrite:false}));
-  tag.scale.setScalar(m.userData.tagBase||7);      // bosses wear a bigger box
+  // A Sprite billboards itself, so the per-frame camera-quaternion copy the
+  // LineLoop needed goes away with it.
+  const tag=new THREE.Sprite(new THREE.SpriteMaterial({map:tagTex,
+    color:0xffffff,transparent:true,fog:false,depthWrite:false,depthTest:false,
+    blending:THREE.AdditiveBlending}));
+  const sc=(m.userData.tagBase||7)*2.6;            // bosses wear a bigger box
+  tag.scale.set(sc,sc,1);
   scene.add(tag); m.userData.tag=tag;
 }
 function setQueued(m,on){
@@ -2739,6 +2849,32 @@ if(TOUCHUI){
   });
 }
 
+// ---------------- device check readout (?diag=1) ----------------
+const diagEl=document.getElementById('diag');
+if(DIAG){
+  diagEl.style.display='block';
+  const vv=window.visualViewport;
+  const seeZoom=()=>{if(vv&&vv.scale>zoomMax)zoomMax=vv.scale;};
+  if(vv){vv.addEventListener('resize',seeZoom);vv.addEventListener('scroll',seeZoom);}
+  const fmt=(k,v,bad)=>k.padEnd(9)+(bad?'<span class="bad">'+v+'</span>':v);
+  setInterval(()=>{
+    seeZoom();
+    const z=vv?vv.scale:1;
+    const st=matchMedia('(display-mode:standalone)').matches||navigator.standalone===true;
+    diagEl.innerHTML=[
+      fmt('VIEWPORT',innerWidth+'x'+innerHeight+'  dpr '+(devicePixelRatio||1).toFixed(1)
+          +'  '+(innerWidth>=innerHeight?'landscape':'PORTRAIT')),
+      fmt('ZOOM',z.toFixed(2)+'   max '+zoomMax.toFixed(2)
+          +(zoomMax>1.01?'   <-- IT ZOOMED':'   ok'), zoomMax>1.01),
+      fmt('AUDIO','rdy '+el.readyState+'  paused '+(el.paused?'Y':'N')
+          +'  t '+el.currentTime.toFixed(1)+'/'+(el.duration>0?el.duration.toFixed(0):'?')),
+      fmt('START',startOutcome, startOutcome!=='ok'&&startOutcome!=='(not started)'),
+      fmt('FULLSCR','api '+(fsReq?'Y':'N')+'  active '+(fsOn()?'Y':'N')
+          +'  want '+(fsWant()?'Y':'N')+'  home-screen '+(st?'Y':'N')),
+    ].join('\n');
+  },250);
+}
+
 // ---------------- the portrait gate ----------------
 // The game asks for one thing: a viewport WIDER than it is tall. Testing that
 // directly beats @media (orientation:portrait), which is a proxy for it, and
@@ -2807,6 +2943,7 @@ function dnaSummary(){
   const g=dna.gain;
   return {n:dna.row.length, camY:st(dna.camY), row:st(dna.row), mp:st(dna.mp),
     ap:st(dna.ap),                       // the ABSOLUTE level, side by side
+    spread:st(dna.spread),               // macro ring spread: picks RANK_FLAT
     tall:+(dna.row.filter(v=>v>TALLWU).length/dna.row.length).toFixed(3),
     // the monotony that actually bites: the percentile PINNED at an end of its
     // range. A stretch of terrain held at max height is as dull as a flat one,
@@ -3229,6 +3366,7 @@ function advanceRow(){
   const mP=macroOut.step(macroRing.pct(mac),1/ROWHZ);
   absP=absLevel(mac);                     // difficulty reads THIS, not the rank
   secIntSum+=mP; secIntN++;               // the section's own character
+  if(songT>=12)eSum+=mac/ROWHZ;           // the integral, past the fade-in
   const sP=mesoOut.step(mesoRing.pct(mes),1/ROWHZ);
   mpRing.push(mP);
   if(DYNMAX>1&&globalRow%10===0&&mpRing.a.length>=120){   // 1Hz, after 12s warm-up
@@ -3307,6 +3445,7 @@ function advanceRow(){
       let rm=0; for(let x=0;x<X;x++){const h=H[fs*X+x];if(h>rm)rm=h;}
       dna.row.push(+(rm*HMAX).toFixed(1)); dna.camY.push(+camY.toFixed(1));
       dna.mp.push(+mP.toFixed(3)); dna.ap.push(+absP.toFixed(3));
+      dna.spread.push(+macroRing.spread().toFixed(4));
       dna.gain.push(+dynG.toFixed(2));
     }
   }
@@ -4169,9 +4308,9 @@ function tick(now,doRender=true){
       // locked and inbound, the box IS the lock indicator, which is what the
       // HUD counters kept failing to be.
       u.tag.visible=!!(u.queued||u.claimed);
-      u.tag.position.copy(m.position);u.tag.quaternion.copy(cam.quaternion);
-      u.tag.rotation.z=tNow*1.1;
+      u.tag.position.copy(m.position);
       const tm=u.tag.material;
+      tm.rotation=tNow*1.1;             // SpriteMaterial spins in 2D
       // THE BOX WEARS THE OBJECT'S OWN COLOUR, in every state -- not white
       // until locked. Colour is the game's first alphabet (red attacks you,
       // gold never does, blue is yours, magenta is power) and a white box
@@ -4624,11 +4763,12 @@ async function startTrack(src){
     // real data arrived.
     if(el.paused||!(el.readyState>=3||el.currentTime>0))
       throw new Error('playback did not start in '+PLAY_WAIT+'s');
-    playing=true;
+    playing=true; startOutcome='ok';
     startCine('drop');            // masks the spawn-dead first T seconds
     const mt=src.match(/tracks\/(.+)$/); curTrack=mt?mt[1]:null;
     refreshHi();
   }catch(e){
+    startOutcome=(e.name||'Error')+': '+e.message;
     console.warn('start failed',e.message);
     // Leave nothing half-running: if the load was merely slow it could still
     // begin AFTER we gave up, and audio playing under a game that thinks it

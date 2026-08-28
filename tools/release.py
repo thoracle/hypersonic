@@ -11,7 +11,7 @@ What lands in release/:
     index.html          the bundled, self-contained game (tools/bundle.py)
     game.html           the readable source it was built from
     static/vendor/      Three.js + the cabinet font, with VERSIONS.md
-    tracks/             the five ORIGINAL songs + CREDITS.md
+    tracks/             the seven shipped songs + CREDITS.md
     server.py           local dev server (Range support: <audio> needs it)
     tools/              bundle.py + release.py
     LICENSE             MIT, this project's own code
@@ -51,7 +51,7 @@ different track and you get a different one.
 
 **Play it:** [thoracle.github.io/hypersonic](https://thoracle.github.io/hypersonic/),
 or open `index.html` locally. It is one self-contained file — no build step, no
-server, no network, nothing to install. Nine songs ship with it, and
+server, no network, nothing to install. Seven songs ship with it, and
 **open file…** in the song picker takes any audio file on your machine.
 
 **[Field Manual](https://claude.ai/code/artifact/fedcc5f6-1c07-45f1-bc51-8b8405ae112c)**
@@ -88,63 +88,79 @@ server, no network, nothing to install. Nine songs ship with it, and
 `server.py` is not `http.server`: it adds HTTP Range support, which `<audio>`
 seeking requires, and `Cache-Control: no-store`.
 
-## The music is code too
+## The music
 
-All five songs are original, written as a program: `tools/make_music.py`
-renders them deterministically from a small synthesis toolkit. They are MIT
-like everything else here, so nothing in this repo owes anyone attribution.
+Seven songs ship. Four are by **Kevin MacLeod** (incompetech.com) under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/): *Cut And Run*,
+*Hard Boiled*, *Severe Tire Damage*, *Ready Aim Fire*. The other three,
+*bright-hook-b*, *cool-b2* and *cool-c-10*, are original to this project and
+MIT like the code. They were chosen by listening — see [tracks/CREDITS.md](tracks/CREDITS.md)
+for the attribution that has to travel with the four if you fork or re-host.
 
-They were not composed by ear. Each aims at the measured *fingerprint* of a
-licensed track it replaced — percussive share, tempo, brightness, dynamic range
-— because that fingerprint is exactly what the game reads to pick the biome,
-the bestiary and the boss. `tools/fingerprint.py` measures it offline in about
-a second, which is what made composing against a target practical.
+The repo can also *write* music: `tools/make_music.py` renders original songs
+deterministically from a small synthesis toolkit, and they were the shipping
+set for a while. They lost a listening comparison to the four above and are now
+a dev-only reference — run the game with `?dev=1` to hear both sets side by
+side. They are MIT like the rest of the code.
 
-    python3 tools/make_music.py tracks     # regenerate the songs
-    python3 tools/fingerprint.py           # measure what they became
+    python3 tools/make_music.py tracks     # render the original songs
+    python3 tools/fingerprint.py           # measure what any track will build
+
+The fingerprint is what the game reads to choose the biome, the bestiary and
+the boss, which is why measuring a candidate track takes about a second and is
+worth doing before you play it.
 
 ## Licence
 
-MIT (`LICENSE`) — the code, and the music. The bundled Three.js and the Press
-Start 2P typeface keep their own licences; see [THIRD-PARTY.md](THIRD-PARTY.md).
+MIT (`LICENSE`) — the code, and three of the seven songs. **The other four
+are not MIT**: they are CC BY 4.0 and require attribution wherever they travel. The bundled Three.js
+and the Press Start 2P typeface keep their own licences too; all of it is in
+[THIRD-PARTY.md](THIRD-PARTY.md).
 """
 
 
 CREDITS = """# Music
 
-All nine songs are original to this project and carry no attribution
-requirement. They are covered by the same MIT licence as the rest of it
-(../LICENSE), and they are made two different ways.
+Seven songs ship with this game. FOUR of them are by **Kevin MacLeod**
+(incompetech.com) and are licensed under **Creative Commons: By Attribution
+4.0** — https://creativecommons.org/licenses/by/4.0/
 
-SEVEN ARE WRITTEN AS CODE: `tools/make_music.py` renders them
-deterministically from a small synthesis toolkit -- no samples, no model.
+- "Cut and Run"          by Kevin MacLeod (incompetech.com), CC BY 4.0
+- "Hard Boiled"          by Kevin MacLeod (incompetech.com), CC BY 4.0
+- "Severe Tire Damage"   by Kevin MacLeod (incompetech.com), CC BY 4.0
+- "Ready Aim Fire"       by Kevin MacLeod (incompetech.com), CC BY 4.0
 
-TWO ARE GENERATED: `ascend-b` and `neon-alley` come from ACE-Step 1.5, which
-is Apache-2.0 and whose output belongs to whoever generated it. They are
-re-encoded to match the rest of the set and vetted with the same checker
-before shipping.
+The OTHER THREE, `bright-hook-b`, `cool-b2` and `cool-c-10`, are original to
+this project: generated with ACE-Step 1.5 (Apache-2.0, output belongs to
+whoever generated it), re-encoded to match the set and vetted with the same
+checkers. They are MIT like the code and owe nobody attribution.
 
-- neon-run     driving and bright, arpeggio-led
-- slow-tide    sustained and tonal; the game floods this one into an archipelago
-- ember-drive  drum-led and wide, the most percussive of the set
-- gaslight     slow, dark and low-register
-- tire-fire    the fastest and brightest
-- ghost-light  sparse, tonal and violently dynamic; builds the aurora world
-- deep-six     sparse, tonal and even; builds the abyss, and floods it
-- ascend-b     generated; driving and wide (ACE-Step)
-- neon-alley   generated; the busiest of the set (ACE-Step)
+**The attribution above has to travel with the four.** The MIT licence in
+../LICENSE covers this project's code and does not extend to those files. If
+you fork, re-host, re-bundle or re-encode them, keep this file beside them and
+keep the credit visible somewhere a listener can reasonably find it — the game
+itself shows it in the song picker, which is that place.
 
-They were chosen against a measured target rather than by ear. The first five
-aim at the fingerprint (tools/fingerprint.py) of a licensed track each
-replaced, because the fingerprint is what the game reads to choose biome,
-bestiary and boss. ghost-light and deep-six aim at a REGION of that
-fingerprint instead -- percFrac below 0.03, which no drum-bearing track can
-reach -- because that is the only way into the two quiet biomes and the two
-bosses that live there. The generated pair were picked by measuring a batch
-and playing the survivors.
+They were chosen by LISTENING, and it is worth writing down why, because the
+repo contains the alternative. An earlier build shipped nine original songs
+generated by tools/make_music.py and tools/ace_gen.py, specifically so that
+nothing here owed anyone attribution. Those songs pass every automated check
+in tools/check_track.py; two of these four do not. Asked which music was
+actually enjoyable to listen to for three minutes, the answer was these. The
+checker predicts whether a track makes a good LEVEL and cannot hear whether it
+makes good MUSIC, and where the two disagree the ear wins.
 
-    python3 tools/make_music.py tracks     # regenerate
-    python3 tools/fingerprint.py           # measure what they became
+The generated songs are still in the source repo behind `?dev=1`, as the
+reference set these replaced:
+
+    python3 tools/make_music.py tracks     # render them
+    python3 tools/fingerprint.py           # measure what they build
+
+One consequence worth knowing if you are picking your own audio: all seven
+shipped tracks fingerprint to the same boss species and to two of the six
+biomes. The aurora and abyss worlds — and the bosses that live in them — need a
+percussive share below 0.03, i.e. a track with no drums at all. Load one with
+**open file…** and you will see a world these four cannot build.
 """
 
 

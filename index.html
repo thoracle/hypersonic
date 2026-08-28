@@ -58,12 +58,44 @@
   #picker h1{color:#33ff55;font-size:18px;letter-spacing:0.12em;font-weight:400;
     text-shadow:0 0 12px #33ff55;margin:0 0 22px;
     font-family:'Press Start 2P',ui-monospace,monospace}
-  #picker button{background:#00000088;color:#33ff55;border:1px solid #33ff5566;
+  #picker button,#menu button,#about button{background:#00000088;color:#33ff55;border:1px solid #33ff5566;
     padding:14px 30px;cursor:pointer;font-size:11px;
     font-family:'Press Start 2P',ui-monospace,monospace;
     letter-spacing:0.04em;min-width:min(370px,84vw);max-width:100%;
     box-sizing:border-box;flex-shrink:0;line-height:1.4}
-  #picker button:hover{background:#33ff55;color:#010402;text-shadow:none}
+  #picker button:hover,#menu button:hover,#about button:hover{background:#33ff55;color:#010402;text-shadow:none}
+  /* ---- MAIN MENU + ABOUT: the cabinet's front screen. The track picker is
+     now the SECOND screen, reached from COMBAT or PASSENGER, so all three
+     wear the same vector look and read as one machine. z-index sits ABOVE
+     the picker: opening the menu over it must cover it, not fight it. ---- */
+  #menu,#about{position:fixed;inset:0;z-index:6;display:none;
+    align-items:center;justify-content:safe center;flex-direction:column;
+    background:#010402f2;cursor:auto;overflow-y:auto;padding:24px 12px;
+    box-sizing:border-box;touch-action:pan-y;-webkit-overflow-scrolling:touch}
+  #menu h1{color:#33ff55;font-size:26px;letter-spacing:0.16em;font-weight:400;
+    text-shadow:0 0 18px #33ff55;margin:0 0 6px;
+    font-family:'Press Start 2P',ui-monospace,monospace}
+  #menu .sub{color:#8fc4c6;font-size:9px;letter-spacing:0.10em;margin:0 0 26px;
+    text-align:center;line-height:1.8;
+    font-family:'Press Start 2P',ui-monospace,monospace}
+  #menubody{display:flex;flex-direction:column;align-items:center;gap:10px;
+    width:100%}
+  #menu .foot{color:#3c5f52;font-size:8px;margin-top:24px;letter-spacing:0.08em;
+    font-family:'Press Start 2P',ui-monospace,monospace}
+  /* the ABOUT card: the Field Manual cut to what fits under cabinet glass.
+     Press Start 2P at 9px needs the line-height or it becomes a wall. */
+  #about .card{max-width:min(620px,94vw);width:100%;
+    font-family:'Press Start 2P',ui-monospace,monospace;
+    font-size:9px;line-height:2.0;color:#bcd8d2;letter-spacing:0.02em}
+  #about h2{color:#33ff55;font-size:11px;letter-spacing:0.14em;font-weight:400;
+    text-shadow:0 0 10px #33ff5588;margin:26px 0 10px}
+  #about h2:first-child{margin-top:0}
+  #about b{color:#eaffef;font-weight:400}
+  #about .row{display:grid;grid-template-columns:106px 1fr;gap:4px 12px;
+    margin:0 0 8px}
+  #about .row i{font-style:normal;color:#8fc4c6}
+  #about .lead{color:#8fc4c6;margin:0 0 6px}
+  #about hr{border:0;border-top:1px solid #33ff5522;margin:22px 0 0}
   #credits{max-width:min(370px,84vw);margin-top:20px;color:#8fc4c6;font-size:10px;
     line-height:1.6;text-align:center;flex-shrink:0}
   #credits a{color:#33ff55}
@@ -111,6 +143,19 @@
     font-size:11px;letter-spacing:0.5em;pointer-events:none}
   #od span{color:#3a1038}
   #od span.on{color:#ff3ce0;text-shadow:0 0 8px #ff3ce0}
+  /* SECTION BANNER, zone-entrance style. It used to be a world-space popup
+     drifting past with the terrain, which made the one label that describes
+     the WHOLE passage read like a score pop. Now it is stationary DOM at the
+     foot of the top-centre stack (od ends at ~148), so it lands under the HI
+     score and the track name and holds still while the world moves under it.
+     Sized in ch so the two lines centre on each other without measuring. */
+  #zone{position:fixed;top:170px;left:50%;transform:translateX(-50%);z-index:2;
+    font-family:'Press Start 2P',ui-monospace,monospace;text-align:center;
+    pointer-events:none;opacity:0;white-space:nowrap}
+  #zone .cls{display:block;font-size:17px;letter-spacing:0.22em;color:#cfefff;
+    text-shadow:0 0 16px #9fe8ffaa,0 0 42px #9fe8ff44}
+  #zone .idx{display:block;margin-top:9px;font-size:8px;letter-spacing:0.34em;
+    color:#6ba7b8;text-shadow:0 0 8px #9fe8ff55}
   #dmg{position:fixed;inset:0;z-index:3;pointer-events:none;opacity:0;
     box-shadow:inset 0 0 120px 40px #ff2222}
   #radar{position:fixed;top:12px;left:12px;z-index:2;pointer-events:none}
@@ -133,6 +178,19 @@
   #odBtn{right:calc(52px + env(safe-area-inset-right));
     bottom:calc(156px + env(safe-area-inset-bottom));width:58px;height:58px;
     font-size:9px}
+  /* PAUSE, the touch equivalent of ESC. Bottom-CENTRE is the only region free
+     on every landscape phone: the radar and the orb own both top corners, the
+     score column owns the top middle, and the stick and FIRE own the bottom
+     corners. It also sits away from where either thumb rests, which is what
+     you want for the one control that interrupts the run. */
+  #pauseBtn{display:none;position:fixed;z-index:4;border-radius:50%;
+    left:50%;transform:translateX(-50%);
+    bottom:calc(26px + env(safe-area-inset-bottom));width:54px;height:54px;
+    background:#03170a88;border:2px solid #33ff5588;color:#33ff55;
+    font-family:'Press Start 2P',ui-monospace,monospace;font-size:11px;
+    letter-spacing:0.16em;touch-action:none;padding:0;
+    -webkit-user-select:none;user-select:none;cursor:pointer}
+  body.touchon #pauseBtn{display:block}
   .hitedge{position:fixed;z-index:3;pointer-events:none;opacity:0}
   #hitL{left:0;top:0;bottom:0;width:16%;
     background:linear-gradient(90deg,#ff2222cc,transparent)}
@@ -181,15 +239,100 @@
   #hstable .new{color:#ffd76a;text-shadow:0 0 10px #ffaa22}
   #hstable .hd{color:#33ff55;font-size:9px;letter-spacing:0.12em;
     text-shadow:0 0 8px #33ff55}
+  /* A front screen with the radar, the shield bar and HI 0 glowing through
+     it is not a front screen. Driven off hudAll in JS rather than a second
+     hand-written list of ids -- that list is exactly what silently omits the
+     element added after it was written. `display` keeps it clear of the
+     cinematic blackout, which drives `visibility` on the same elements. */
+  .menuhide{display:none!important}
   canvas{display:block}
 </style>
 </head>
 <body>
+<div id="menu"><h1>HYPERSONIC</h1>
+  <div class="sub">HOLD TO LOCK &middot; RELEASE ON THE BEAT</div>
+  <div id="menubody"></div>
+  <div class="foot">ESC &mdash; MENU</div></div>
+<div id="about"><div class="card">
+  <h2>THE SONG IS THE LEVEL</h2>
+  <div class="lead">There is no authored content. The music you pick raises the
+    terrain, sends the enemies, sets the palette, decides where the boss goes
+    and how long the level lasts. Same track, same world. Every time.</div>
+  <div class="lead">You ride a rail. You do not steer the ship &mdash; you steer
+    the <b>reticle</b>. The game hears every hit a few seconds before you do,
+    so your shots land <b>on</b> the music, not near it.</div>
+  <h2>CONTROLS</h2>
+  <div class="row"><i>MOUSE</i><span>Aim. The ship flies itself.</span></div>
+  <div class="row"><i>HOLD CLICK</i><span>Sweep-lock every target you pass over.
+    Up to eight.</span></div>
+  <div class="row"><i>RELEASE</i><span>Fire the volley. <b>On the beat</b> to
+    build the chain.</span></div>
+  <div class="row"><i>SPACE</i><span>While holding: stack an extra lock.</span></div>
+  <div class="row"><i>E</i><span>Overdrive. Clears the field. Limited.</span></div>
+  <div class="row"><i>V</i><span>View: retro &rarr; wire &rarr; shaded.</span></div>
+  <div class="row"><i>ESC</i><span>Pause. Again to fly on.</span></div>
+  <div class="lead">On a phone: stick aims, FIRE holds the sweep, OD spends an
+    overdrive, and <b>II</b> at the bottom is pause &mdash; there is no ESC key.
+    Landscape only.</div>
+  <h2>COLOUR IS INTENT</h2>
+  <div class="row"><i style="color:#ff3b3b">RED</i><span>Attacks you. Hunters,
+    swarmers, tanks, shells, boss hulls and bays.</span></div>
+  <div class="row"><i style="color:#ffd240">GOLD</i><span>Never does. Pods,
+    mine-layers, mines. A mine is a hazard you fly into.</span></div>
+  <div class="row"><i style="color:#44aaff">BLUE</i><span>Yours. Your ship, the
+    mothership, data nodes, the ring that evolves you.</span></div>
+  <div class="row"><i style="color:#ff3ce0">MAGENTA</i><span>Power. The
+    overdrive ring and its pips. Nothing hostile is ever this colour.</span></div>
+  <div class="lead">Anything too far to shoot is <b>dimmed to a ghost</b>. When
+    it lights up, it is lockable. The box on a target reports your relationship
+    to it: faint white in range, solid when locked, pulsing when a missile is
+    already running.</div>
+  <h2>WHAT COMES AT YOU</h2>
+  <div class="row"><i>10</i><span>Drone &mdash; rides the music in.</span></div>
+  <div class="row"><i>10</i><span>Mine &mdash; armed and drifting. Shoot it or
+    take the hit.</span></div>
+  <div class="row"><i>15</i><span>Swarmer &mdash; small, fast, angry.</span></div>
+  <div class="row"><i>20</i><span>Shell &mdash; the counterattack you can shoot
+    down.</span></div>
+  <div class="row"><i>25</i><span>Heavy drone &mdash; born of the loudest hits.</span></div>
+  <div class="row"><i>40</i><span>Data node &mdash; four hits ANALYZE it and the
+    world deepens.</span></div>
+  <div class="row"><i>50</i><span>Hunter &mdash; flocks, seeks you, climbs
+    terrain.</span></div>
+  <div class="row"><i>50</i><span>Item ring &mdash; shoot to collect.</span></div>
+  <div class="row"><i>60</i><span>Volley bay &mdash; one boss attack pattern.
+    Silence it and that pattern is gone for good.</span></div>
+  <div class="row"><i>75</i><span>Tank &mdash; rides the ground, lobs shells you
+    can destroy.</span></div>
+  <div class="row"><i>100</i><span>Flock leader &mdash; snipe it first.</span></div>
+  <div class="row"><i>200</i><span>Pod &mdash; never attacks. Pops into five
+    swarmers. Pop it far out.</span></div>
+  <div class="row"><i>300</i><span>Mine-layer &mdash; crosses your path laying a
+    barrier. Kill it to stop the row.</span></div>
+  <div class="row"><i>500</i><span>Boss &mdash; four species, picked by the music.
+    Hull is shielded until every bay is silenced.</span></div>
+  <h2>SCORING</h2>
+  <div class="row"><i>+2000</i><span>Accuracy. Squared &mdash; sloppy volleys are
+    expensive.</span></div>
+  <div class="row"><i>+1000</i><span>Items. Rings collected. Also squared.</span></div>
+  <div class="row"><i>+1000</i><span>Analyzation. Data nodes opened.</span></div>
+  <div class="lead"><b>Rhythm chain:</b> release within a sixteenth of a beat and
+    the chain climbs. At three and six links your lock capacity grows from eight
+    to ten to twelve. One off-beat release resets it to nothing. This is the
+    difference between shooting at the music and playing it.</div>
+  <h2>FLYING WELL</h2>
+  <div class="lead">Release on the beat, always. Shoot the shells &mdash; they
+    are targets and they are points. Pop pods at a distance. Do not ignore the
+    blue: a run that shoots perfectly and collects nothing leaves a third of its
+    points on the table.</div>
+  <hr>
+</div></div>
 <div id="picker"><h1>SELECT TRACK</h1></div>
 <div id="tune"></div>
 <div id="hud">select a track</div><div id="score"></div><div id="bigscore">0</div>
 <div id="shield"><div id="shieldfill"></div></div>
 <div id="lvl"></div><div id="od"></div>
+<div id="zone"><span class="cls"></span><span class="idx"></span></div>
 <div id="dmg"></div>
 <canvas id="radar" width="160" height="160"></canvas>
 <canvas id="viz" width="160" height="160"></canvas>
@@ -197,6 +340,7 @@
 <div id="hitT" class="hitedge"></div><div id="hitB" class="hitedge"></div>
 <div id="touchui"><button id="joy"><div id="joyknob"></div></button>
 <button id="fireBtn">FIRE</button><button id="odBtn">OD</button></div>
+<button id="pauseBtn">II</button>
 <div id="tapstart"><span>TAP TO START</span><em id="tapname"></em></div>
 <div id="rotate">ROTATE TO LANDSCAPE<small>the horizon needs the width</small></div>
 <div id="over">
@@ -54847,6 +54991,19 @@ let seaTop=0, seaAmp=3.0;   // smoothed swell amplitude: the collision crest
 let vizMode=0;                           // 0 shaded / 1 wire / 2 battlezone —
                                          // declared here: setShipForm() reads
                                          // it while painting the hull at init
+// ---------------- game mode (the main menu picks it) ----------------
+// COMBAT is the game. PASSENGER flies the same level with nothing in it: no
+// HUD, no enemies, no items, no nodes, no boss -- just the world the song
+// built, which is the one thing here no other mode lets you actually look at.
+// The mode rides the URL for the same reason ?track= does: restart() changes
+// track by RELOADING, so anything held only in a variable dies on every track
+// change. It is a `let` because the boot menu can set it BEFORE a track has
+// started, where no reload is needed and nothing has spawned yet to be wrong.
+let MODE=qs.get('mode')==='passenger'?'passenger':'combat';
+let PASSENGER=MODE==='passenger';
+function setMode(m){MODE=(m==='passenger')?'passenger':'combat';
+                    PASSENGER=MODE==='passenger';}
+let paused=false;                        // ESC pause: menu up, world frozen
 const ITEMQA=!!qs.get('items');          // QA: drop items generously
 const NODEQA=!!qs.get('nodes');          // QA: spawn data nodes frequently
 const GENUSQA=qs.get('genus')||'';       // QA: force the boss species
@@ -55382,7 +55539,7 @@ function sectionBoundary(mP){
   // the banner popup fires in tick at the same moment
   const at=actx.currentTime+T;
   [0,4,7].forEach((d,j)=>vtone(nt(d)*2,at+j*0.08,0.2,0.2));   // in ITS voice
-  pendingSec={at:songT+T,txt:SEC_NAMES[cls]+' '+secIdx,cls};
+  pendingSec={at:songT+T,name:SEC_NAMES[cls],idx:secIdx,cls};
 }
 // probe: is THIS section the hottest heard so far? (streaming argmax — the
 // first time the track tops itself, the carrier launches; it flies in over
@@ -55413,7 +55570,7 @@ function sectionProbe(mP){
   // that class, the ordinary hottest-section gate takes over past halfway.
   const late=!(el.duration>0)||songT>el.duration*0.55;
   const hot=(want&&!late)?curSecCls===want:(mP>0.66&&mP>maxSecInt);
-  if(secIdx>=2&&hot&&songT-lastBossT>60&&!boss&&!dead&&!finished){
+  if(!PASSENGER&&secIdx>=2&&hot&&songT-lastBossT>60&&!boss&&!dead&&!finished){
     lastBossT=songT; carrier=true; spawnBoss();
   }
   // early-run readings come off half-seeded percentile rings and read hot;
@@ -56057,6 +56214,7 @@ function dropItem(kind,pos,delay=0){
   // spawn to ship — and an unreachable drop would tax collection %
   if(trackEnded||dead||finished)return;
   const at=nextOffbeat(actx.currentTime+0.05+delay);
+  if(PASSENGER)return;               // passenger mode: nothing to collect
   pendingItems.push({kind,at,pos});
   // the materialize chime IS the offbeat made audible — scheduled exactly
   tone(nt(kind==='red'?5:4)*2,at,0.12,'triangle',0.16);
@@ -56118,6 +56276,7 @@ function collectItem(m,tNow){
 const nodeGeo=new THREE.IcosahedronGeometry(6,0);
 let nodesSpawned=0,nodesOpened=0,layerLvl=0,lastNodeT=-99;
 function spawnNode(laneX,p){
+  if(PASSENGER)return;               // passenger mode: nothing to analyze
   const m=new THREE.Mesh(nodeGeo,new THREE.MeshLambertMaterial({
     color:FRIENDLY,emissive:FRIENDLY_EM,flatShading:true,fog:false,
     transparent:true,opacity:0.35}));       // ghost until in weapons range
@@ -56336,6 +56495,7 @@ function planWave(){
   return {n,hunters,tanks,pods,layers};
 }
 function spawnEnemy(laneX,p){
+  if(PASSENGER)return;               // passenger mode: an empty sky, by design
   if(dead||finished)return;          // the fight is over
   if(songT<T)return;                 // the EARS haven't heard note one yet
   if(boss)return;                    // the boss window owns the field
@@ -56629,6 +56789,15 @@ if(document.fonts&&document.fonts.load)
     drawDigit(queue.length);                  // repaint the MAX label
   }).catch(()=>{});
 function popup(pos,txt,color='#eaffef',sc=1){
+  // Passenger mode wants NO text over the world, and popups are the one part
+  // of the HUD that is not DOM -- they are world-space sprites, so hudAll and
+  // the overlay hide both walk straight past them. That is how SURGE 5 and
+  // BLOOM 6 kept announcing themselves over an empty sky: every other caller
+  // here is combat feedback that cannot fire with nothing spawning, but the
+  // SECTION BANNER is driven by the music and fires regardless.
+  // Gated at the source rather than at that one call site, so a caller that
+  // becomes reachable later cannot reintroduce this.
+  if(PASSENGER)return;
   const cv=document.createElement('canvas');cv.width=512;cv.height=96;
   const c=cv.getContext('2d');
   c.font=(arcReady?'32px ':'bold 56px ')+arcFont;   // PS2P runs larger per em
@@ -56782,7 +56951,7 @@ addEventListener('pointerdown',e=>{lastInput='pd:'+e.target.tagName+':'+e.isTrus
   if(e.target.tagName!=='BUTTON'&&e.target.tagName!=='INPUT'){
     e.preventDefault();                 // no force-click Look Up / drag-select
     if(TOUCHUI&&e.pointerType==='touch')return;   // touch fires via the button
-    if(playing&&!dead&&!finished){
+    if(playing&&!paused&&!PASSENGER&&!dead&&!finished){
       if(!holdLock){
         holdLock=true;holdSrc='m';holdBtn=e.button;
         // the INITIATING press also retargets a locked/claimed enemy —
@@ -56885,16 +57054,27 @@ if(qs.get('tu')){
 }
 if(qs.get('tune'))toggleTune(true);
 addEventListener('keydown',e=>{
+  // ESC folds the game into the menu and back out again. It is checked FIRST
+  // so nothing downstream can swallow it, and it is a no-op on the boot menu
+  // (nothing to resume) rather than a way to start with no track loaded.
+  if(e.key==='Escape'){
+    e.preventDefault();
+    if(isOpen(aboutEl)){hideAbout();return;}
+    if(isOpen(menuEl)){if(paused)closeMenu();return;}
+    if(inRun())openMenu();
+    return;
+  }
   if(e.key==='`'){toggleTune();return;}
   if(e.key===' '){e.preventDefault();lastInput='sp:'+e.isTrusted;
-    if(playing&&!dead&&!finished&&!e.repeat){
+    if(playing&&!paused&&!PASSENGER&&!dead&&!finished&&!e.repeat){
       if(!holdLock){
         holdLock=true;holdSrc='k';
         if(hoverAnyM&&(hoverAnyM.userData.queued||hoverAnyM.userData.claimed))stackPress();
       }
       else stackPress();                // space tap while holding = stack
     }return;}
-  if(e.key==='e'||e.key==='E'){if(playing&&!dead&&!finished)overdrive();return;}
+  if(e.key==='e'||e.key==='E'){
+    if(playing&&!paused&&!PASSENGER&&!dead&&!finished)overdrive();return;}
   if(e.key==='v'||e.key==='V'){setViz(vizMode===2?1:vizMode===1?0:2);return;}
   if(e.key==='p'){P.FIRELOCK=1-P.FIRELOCK;return;}
   const k=KEYS[e.key];if(k)P[k[0]]=Math.max(0.02,+(P[k[0]]+k[1]).toFixed(2));
@@ -56935,7 +57115,7 @@ if(TOUCHUI){
   joy.addEventListener('pointerup',joyEnd);
   joy.addEventListener('pointercancel',joyEnd);
   fireBtn.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();
-    if(playing&&!dead&&!finished){
+    if(playing&&!paused&&!PASSENGER&&!dead&&!finished){
       if(!holdLock){holdLock=true;holdSrc='t';
         if(hoverAnyM&&(hoverAnyM.userData.queued||hoverAnyM.userData.claimed))stackPress();}
       else stackPress();
@@ -57089,18 +57269,41 @@ function damageShip(amt,tNow,from){
 }
 // ---- per-track high scores (localStorage; each song is its own board) ----
 let finished=false, hiScore=0;
+// The section banner announces the passage that is NOW reaching the ears.
+// Fade in, hold, fade out -- a zone title, not a score pop. One animation on
+// the container so both lines move together; re-firing it on a fast boundary
+// simply restarts, which is the behaviour you want.
+const zoneEl=document.getElementById('zone');
+function showZone(name,idx){
+  zoneEl.querySelector('.cls').textContent=name;
+  zoneEl.querySelector('.idx').textContent='SECTION '+idx;
+  zoneEl.animate(
+    [{opacity:0,filter:'blur(6px)'},
+     {opacity:1,filter:'blur(0px)',offset:0.16},
+     {opacity:1,filter:'blur(0px)',offset:0.70},
+     {opacity:0,filter:'blur(2px)'}],
+    {duration:3000,easing:'ease-out'});
+}
 const hiEl=document.getElementById('hiscore');
 const fmt=n=>n.toLocaleString('en-US');   // scores: commas, no leading zeros
 function scoreKey(){return 'hyperscores-'+(curTrack||'custom');}
 function loadScores(){try{return JSON.parse(localStorage.getItem(scoreKey()))||[]}catch(e){return[]}}
+// The HI number lives in its OWN span. Writing hiEl.textContent replaces
+// every child, which is what silently ate the track name: the tick loop does
+// exactly that the moment your score passes the high score, so the label
+// vanished on any decent run and stayed gone.
+const hiValEl=document.createElement('span');
+const hiTrkEl=document.createElement('span'); hiTrkEl.className='trk';
+hiEl.textContent='';        // the markup ships a static "HI 0" placeholder;
+hiEl.append(hiValEl,hiTrkEl);   // appending without clearing reads "HI 0HI 120"
+setHiVal();
+function setHiVal(){hiValEl.textContent='HI '+fmt(hiScore);}
 function refreshHi(){try{hiScore=loadScores()[0]?.score||0}catch(e){hiScore=0}
-  // textContent would print the markup, and the track name is player-facing
-  // text from a filename -- so it goes in as a text node, never as HTML
-  hiEl.textContent='HI '+fmt(hiScore);
-  const t=document.createElement('span'); t.className='trk';
-  t.textContent=curTrack?curTrack.replace(/\.mp3$/,'').toUpperCase()
-                        :(playing?'CUSTOM':'');
-  hiEl.append(t);}
+  setHiVal();
+  // the track name is player-facing text from a FILENAME, so it goes in as a
+  // text node, never as HTML
+  hiTrkEl.textContent=curTrack?curTrack.replace(/\.mp3$/,'').toUpperCase()
+                              :(playing?'CUSTOM':'');}
 function saveScore(){
   const list=loadScores();
   const entry={score,wave:waveNum,kills,chain:bestChain,d:new Date().toISOString().slice(0,10)};
@@ -57112,6 +57315,11 @@ function saveScore(){
 function restart(t){
   const u=new URL(location.href);
   if(t)u.searchParams.set('track',t); else u.searchParams.delete('track');
+  // This is a RELOAD, so the mode has to travel in the URL or every track
+  // change silently drops the player back into combat. Combat is the default
+  // and stays OUT of the URL, so a shared link is the plain game.
+  if(MODE==='passenger')u.searchParams.set('mode','passenger');
+  else u.searchParams.delete('mode');
   location.href=u.toString();
 }
 function showEnd(title,good){
@@ -57154,7 +57362,7 @@ function showEnd(title,good){
   if(nodesSpawned)stages.push({label:'DATA',pct:Math.round(100*anF),bonus:anBonus});
   runTally(score-accBonus-collBonus-anBonus,stages,rank,boardHTML,good);
   overEl.style.display='flex';
-  setTimeout(()=>overEl.addEventListener('pointerdown',()=>showPicker(),{once:true}),400);
+  setTimeout(()=>overEl.addEventListener('pointerdown',()=>showMenu(),{once:true}),400);
 }
 // ---- arcade end-screen tally ----
 // Each stat counts 0 -> final % with a ticking blip (rising as it climbs),
@@ -57247,7 +57455,14 @@ function levelComplete(){
   }
   const t0=actx.currentTime;
   [0,2,4,7,9,7,4,9].forEach((d,j)=>tone(nt(d%8)*2,t0+j*0.09,0.22,'triangle',0.2));
-  cineEnd=()=>showEnd('LEVEL COMPLETE',true);
+  // Passenger scores nothing, so the end screen would be three 0% bonuses
+  // over a zero -- a result that reads as a broken run. The ride ends on
+  // the menu instead, after the mothership has collected you.
+  // ...but the FINAL TELEMETRY ROW still has to go out. showEnd is the only
+  // thing that flushes it, and botrun.sh waits on exactly that row, so a
+  // passenger run that skipped it would hang every QA run in this mode.
+  cineEnd=PASSENGER?()=>{flushShots(true);showMenu();}
+                   :()=>showEnd('LEVEL COMPLETE',true);
   startCine('pickup');            // the mothership collects you first
 }
 const v3=new THREE.Vector3(), proj=new THREE.Vector3();
@@ -57656,8 +57871,12 @@ function drawRadar(now){
 // MIRROR each other across the top of the screen, so one of them surviving a
 // cinematic blackout reads as a bug rather than as a choice.
 const hudAll=['hud','score','bigscore','shield','lvl','od','hiscore','radar',
-              'viz','touchui']
+              'viz','touchui','zone']
   .map(id=>document.getElementById(id));
+// Deliberately NOT in hudAll. hudAll is what a cinematic and PASSENGER mode
+// take away; the pause button follows the cinematic (a cutscene gets a clean
+// frame) but NOT passenger, because on a phone it is the only way out of a run.
+const pauseEl=document.getElementById('pauseBtn');
 let hudShown=true;
 
 // ---------------- sim loop ----------------
@@ -57668,6 +57887,12 @@ let last=performance.now(), tickAcc=0, rafAlive=0;
 const bootT=performance.now();
 function tick(now,doRender=true){
   const dt=Math.min(0.05,(now-last)/1000); last=now;
+  // ESC pause. `last` is updated ABOVE this return, so the frame after a
+  // resume carries one frame of dt rather than the whole paused interval --
+  // which would otherwise be clamped to 0.05 and silently swallowed, but
+  // only because the clamp is there. Do not move this above the dt line.
+  // Nothing is rendered while paused, so the canvas holds the frozen frame.
+  if(paused)return;
   // QA: ?end=N forces the end screen on WALL-CLOCK time — works even when
   // autoplay is blocked (headed captures of the end screen need no audio)
   if(ENDQA&&!dead&&!finished&&now-bootT>=ENDQA*1000)levelComplete();
@@ -57698,7 +57923,7 @@ function tick(now,doRender=true){
       const floor=known&&songT>=songDur+T+3;
       if(heard||floor)levelComplete();
     }
-    if(BOSSQA&&!boss&&lastBossT<0&&songT>=BOSSQA&&!dead&&!finished){
+    if(BOSSQA&&!PASSENGER&&!boss&&lastBossT<0&&songT>=BOSSQA&&!dead&&!finished){
       lastBossT=songT;spawnBoss();}       // QA: deterministic boss window
     // earned items materialize on their scheduled OFFBEAT (ears' timeline);
     // a drop still pending when the song ends is quietly cancelled — the
@@ -58357,10 +58582,14 @@ function tick(now,doRender=true){
     }
   }
   // reticle paint-state (hidden during cinematics — no weapons on the dock)
-  reticle.visible=!cine; web.visible=!cine;
+  reticle.visible=!cine&&!PASSENGER; web.visible=!cine&&!PASSENGER;
   const hudWant=!cine;                       // cutscenes get a clean frame
   if(hudWant!==hudShown){hudShown=hudWant;
-    for(const e of hudAll)e.style.visibility=hudWant?'visible':'hidden';}
+    // One transition, two answers: PASSENGER never gets the HUD back, but the
+    // pause button does, in both modes.
+    for(const e of hudAll)
+      e.style.visibility=(hudWant&&!PASSENGER)?'visible':'hidden';
+    pauseEl.style.visibility=hudWant?'visible':'hidden';}
   const targetScale=(holdLock||hoverNear||hoverItem||queue.length>0||pending.length>0)?1.25:1.0;
   reticleScale+=(targetScale-reticleScale)*(1-Math.exp(-dt/0.08));
   lockFlash=Math.max(0,lockFlash-dt*5);
@@ -58527,7 +58756,7 @@ function tick(now,doRender=true){
   // section banner: the boundary detected T seconds ago is NOW reaching the
   // ears — announce it where the jingle (scheduled at detection) is landing
   if(pendingSec&&songT>=pendingSec.at){
-    popup(mv1.set(camX,camY+38,camZ-230),pendingSec.txt,'#9fe8ff',2.2);
+    showZone(pendingSec.name,pendingSec.idx);
     // an intense section reaching the ears IS the drop: punch the FOV
     if(pendingSec.cls==='surge'||pendingSec.cls==='bloom')fovKick=1;
     pendingSec=null;
@@ -58603,8 +58832,8 @@ function tick(now,doRender=true){
     bigscoreEl.animate(
       [{transform:'translateX(-50%) scale(1.3)'},{transform:'translateX(-50%) scale(1)'}],
       {duration:180,easing:'ease-out'});
-    if(score>hiScore){hiScore=score;
-      hiEl.textContent='HI '+fmt(hiScore);}
+    if(score>hiScore){hiScore=score;setHiVal();}   // NOT hiEl.textContent:
+                                                   // that eats the track name
   }
   // shield: Halo recharge — quiet delay after the last hit, then refill
   if(!dead&&shield<SHIELD_MAX&&tNow-lastHitAt>TU.RECH_DELAY){
@@ -58640,6 +58869,38 @@ addEventListener('resize',()=>{cam.aspect=innerWidth/innerHeight;cam.updateProje
 
 // ---------------- tracks ----------------
 let starting=false;
+// ---- carrying a picked FILE across a reload --------------------------------
+// Changing track RELOADS (restart(), so every system starts clean), and a File
+// cannot survive that: a blob URL dies with the document and sessionStorage
+// holds no binary. So the picker used to call restart(null) and SILENTLY THROW
+// THE FILE AWAY -- pick a song, finish it, pick a file, and the page just
+// reset itself to the front menu. IndexedDB does hold a File, so it is stashed
+// there and the reload asks for it back by name.
+// The stash is NOT cleared on read: a mode switch reloads again and needs the
+// same file. It only ever loads when ?track=__file is in the URL, so a plain
+// reload cannot resurrect it, and the next picked file overwrites it.
+const FILEKEY='__file';
+let curFile=null;
+function idbOpen(){return new Promise((res,rej)=>{
+  const r=indexedDB.open('hypersonic',1);
+  r.onupgradeneeded=()=>r.result.createObjectStore('f');
+  r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error);});}
+async function stashFile(f){try{
+  const db=await idbOpen();
+  await new Promise((res,rej)=>{const t=db.transaction('f','readwrite');
+    t.objectStore('f').put(f,'cur'); t.oncomplete=res; t.onerror=()=>rej(t.error);});
+  return true;}catch(e){console.warn('stash failed',e.message);return false;}}
+async function takeFile(){try{
+  const db=await idbOpen();
+  return await new Promise((res,rej)=>{const t=db.transaction('f','readonly');
+    const q=t.objectStore('f').get('cur');
+    q.onsuccess=()=>res(q.result||null); q.onerror=()=>rej(q.error);});
+  }catch(e){console.warn('stash read failed',e.message);return null;}}
+// Restart whatever is playing NOW, file or track, keeping it across the reload.
+async function restartCurrent(){
+  if(!curTrack&&curFile&&await stashFile(curFile))return restart(FILEKEY);
+  restart(curTrack);
+}
 async function startTrack(src){
   // A SECOND start inside the same page is never right, and it is the shape
   // of the reported bug: nothing in here resets songT, globalRow, the terrain,
@@ -58674,40 +58935,131 @@ async function startTrack(src){
 // from either end screen. After a run, selection reloads the page so every
 // system starts clean; on a fresh page it starts directly.
 const picker=document.getElementById('picker');
-function showPicker(){picker.style.display='flex';}
-function hidePicker(){picker.style.display='none';}
-// The shipped songs are ORIGINAL (tools/make_music.py) and owe nobody
-// attribution. The CC-BY set they replaced stays here as a local A/B
-// reference, and the qa-* tones are synthetic fixtures for the QA rig --
-// tools/bundle.py empties both for a distribution build.
-// ghost-light and deep-six are the only two that reach the QUIET biomes:
-// aurora/obelisk and abyss/leviathan both need percFrac < 0.03, which means no
-// drums anywhere and no beating saw stack below ~175Hz. See make_music.py.
-const GAME_TRACKS=[// procedural (tools/make_music.py)
-                   'neon-run.mp3','slow-tide.mp3','ember-drive.mp3',
-                   'gaslight.mp3','tire-fire.mp3',
-                   // the quiet biomes: aurora and abyss
-                   'ghost-light.mp3','deep-six.mp3',
-                   // ACE-Step (tools/ace_gen.py). The 320kbps masters and
-                   // the takes that did not win stay in tracks/candidates/.
-                   // These two are re-encoded at -q:a 3 to match the rest of
-                   // the set: half the size, percFrac moves by 0.002.
-                   // NB: keep single quotes out of the comments in this block.
-                   // bundle.py extracts the track list by matching quoted
-                   // pairs across the whole array, so a stray one is read as
-                   // a filename -- it fails the build rather than shipping a
-                   // bad list, but it does fail it.
-                   'ascend-b.mp3','neon-alley.mp3'];
-const CCBY_TRACKS=[];   // dev-only reference set
+function showPicker(){picker.style.display='flex';hudForOverlay(true);}
+function hidePicker(){picker.style.display='none';hudForOverlay(false);}
+// ---------------- main menu (ESC, and the first screen of the session) ------
+// Three screens, one machine: MENU -> picker -> game, with ABOUT hanging off
+// the menu and ESC folding the game back into it.
+const menuEl=document.getElementById('menu'), aboutEl=document.getElementById('about');
+const menuBody=document.getElementById('menubody');
+const isOpen=el=>el.style.display==='flex';
+// Every overlay screen takes the HUD with it. hudAll is the one list of what
+// the HUD IS, so this asks it rather than naming the elements again -- plus
+// the pause button, which is deliberately NOT in hudAll: that list is what a
+// cinematic and PASSENGER mode hide, and the one control that gets a touch
+// player out of a run has to survive both of those.
+const overlayHides=[...hudAll,pauseEl];
+function hudForOverlay(up){for(const e of overlayHides)e.classList.toggle('menuhide',up);}
+// ESC has no key on a phone. Same action, same toggle: the menu it opens
+// carries RESUME, so tap-and-tap-back mirrors press-and-press-again.
+// pointerdown + touch preventDefault, exactly like FIRE: iOS decides on a
+// double-tap zoom from the TOUCH sequence, and a pointer handler is too late.
+pauseEl.addEventListener('pointerdown',e=>{
+  e.preventDefault();e.stopPropagation();
+  if(inRun())openMenu();
+});
+for(const ev of ['touchstart','touchend'])
+  pauseEl.addEventListener(ev,e=>e.preventDefault(),{passive:false});
+// The audio element AND the AudioContext both stop. Suspending the context
+// matters as much as pausing the element: item drops and every lock tone are
+// scheduled against actx.currentTime, so a context that kept running through
+// a pause would fire the whole backlog the moment the world came back.
+function setPaused(p){
+  if(paused===p)return;
+  paused=p;
+  if(p){ try{el.pause();}catch(_){} actx.suspend().catch(()=>{}); }
+  else { actx.resume().catch(()=>{}); el.play().catch(()=>{});
+         last=performance.now(); }
+}
+const inRun=()=>playing&&!dead&&!finished;
+function buildMenu(){
+  menuBody.textContent='';
+  const add=(label,fn)=>{const b=document.createElement('button');
+    b.textContent=label;b.onclick=fn;menuBody.append(b);};
+  if(paused){
+    // Mid-run the menu is a pause screen, so it offers the way BACK first and
+    // then the two ways out. It offers the OTHER mode rather than both --
+    // "COMBAT" while already in combat is a button that means nothing.
+    add('RESUME',()=>closeMenu());
+    add('ABOUT',()=>showAbout());
+    add(PASSENGER?'SWITCH TO COMBAT':'SWITCH TO PASSENGER',()=>{
+      setMode(PASSENGER?'combat':'passenger');
+      restartCurrent();             // a mode change needs a clean world, and
+                                    // must not drop a picked FILE doing it
+    });
+    add('CHANGE TRACK',()=>restart(null));
+  }else{
+    add('ABOUT',()=>showAbout());
+    add('COMBAT',()=>chooseMode('combat'));
+    add('PASSENGER',()=>chooseMode('passenger'));
+  }
+}
+// Picking a mode with nothing loaded needs no reload: nothing has spawned yet,
+// so setting the flag before the track starts is enough. Picking one with a
+// track already loaded goes through the picker, whose own handler calls
+// restart() -- which now carries the mode. Neither path needs a special case.
+function chooseMode(m){setMode(m);hideMenu();showPicker();}
+function showMenu(){buildMenu();aboutEl.style.display='none';
+                    menuEl.style.display='flex';hudForOverlay(true);}
+function hideMenu(){menuEl.style.display='none';}
+function showAbout(){menuEl.style.display='none';aboutEl.style.display='flex';
+                     aboutEl.scrollTop=0;hudForOverlay(true);}
+function hideAbout(){aboutEl.style.display='none';showMenu();}
+function openMenu(){setPaused(true);hidePicker();showMenu();}
+function closeMenu(){hideMenu();aboutEl.style.display='none';
+                    hudForOverlay(false);setPaused(false);}
+{ // ABOUT closes back to the menu it came from
+  const b=document.createElement('button');b.textContent='BACK';
+  b.onclick=()=>hideAbout();
+  aboutEl.querySelector('.card').append(b);
+}
+// The shipped set is the CC-BY one, restored on a LISTENING call: asked which
+// music was actually enjoyable to hear for three minutes, the author named
+// these over anything generated. That reverses the earlier ORIGINAL-music
+// decision, so the attribution obligation is back and it is real -- CC BY 4.0
+// requires the credit to travel with the audio, which is why the credits block
+// below is unconditional now and why tools/release.py writes it into
+// tracks/CREDITS.md and THIRD-PARTY.md as well.
+// The generated songs (tools/make_music.py, tools/ace_gen.py) are NOT deleted;
+// they move behind ?dev=1 as the A/B reference the CC-BY set used to be.
+// tools/bundle.py empties DEV_TRACKS and QA_TRACKS for a distribution build.
+// KNOWN COST, measured before the swap: all seven fingerprint to the CARRIER
+// boss and to ember/veld, so the shipped build can no longer reach the aurora
+// or abyss biomes or three of the four boss species -- those need percFrac
+// below 0.03, and only ghost-light and deep-six have ever managed it.
+// NB: keep single quotes out of the comments in this block. bundle.py extracts
+// the track list by matching quoted pairs across the whole array, so a stray
+// one is read as a filename -- it fails the build rather than shipping a bad
+// list, but it does fail it.
+const GAME_TRACKS=['cut-and-run.mp3','hard-boiled.mp3',
+                   'severe-tire-damage.mp3','ready-aim-fire.mp3',
+                   // ACE-Step, original and MIT, so they add no attribution.
+                   // Built against tools/musical.py rather than check_track
+                   // alone: the top-third energy share and the literal-repeat
+                   // rate are what separated them from the dull takes.
+                   // bright-hook-b sits ON the surge-lateness limit.
+                   // cool-b2 and cool-c-10 both pass all EIGHT check_track
+                   // gates -- cool-b2 slow (67bpm) and barely percussive
+                   // (0.13), cool-c-10 the opposite (129bpm, percFrac 0.49).
+                   // cool-c-10 carries the highest dyn measured ANYWHERE
+                   // (0.446) against the ~0.38 that predicts music worth
+                   // listening to. musical.py reads both masters as thin
+                   // (crest 15.0-15.2 against a 9-15 band); they ship on the
+                   // ear, per Rule 0.
+                   'bright-hook-b.mp3','cool-b2.mp3','cool-c-10.mp3'];
+// Everything the CC-BY set replaced, kept as the dev-only A/B reference.
+// heavy-interlude is the fifth CC-BY track and was not picked for the ship set,
+// so it belongs here too -- the QA rig still runs against it by name.
+const DEV_TRACKS=[];   // dev-only reference set
 const QA_TRACKS=[];   // stripped for distribution
-// The picker lists the SHIPPING set only. The CC-BY reference tracks and the
-// qa-* fixtures are dev instruments, not songs, and as nine extra buttons they
-// ran the list off the bottom of the screen — which is how two newly added
-// tracks can be in the build and still look missing. `?dev=1` puts them back,
+// The picker lists the SHIPPING set only. The generated songs and the qa-*
+// fixtures are dev instruments here, not the offer, and as ten extra buttons
+// they ran the list off the bottom of the screen -- which is how a newly added
+// track can be in the build and still look missing. `?dev=1` puts them back,
 // and neither botrun nor `?track=` ever went through this list anyway, so
 // nothing that automates against them changes.
 const DEVLIST=!!qs.get('dev');
-for(const t of DEVLIST?[...GAME_TRACKS,...CCBY_TRACKS,...QA_TRACKS]:GAME_TRACKS){
+for(const t of DEVLIST?[...GAME_TRACKS,...DEV_TRACKS,...QA_TRACKS]:GAME_TRACKS){
   const b=document.createElement('button');b.textContent=t.replace(/\.mp3$/,'');
   b.onclick=async()=>{
     if(playing||dead||finished){restart(t);return;}
@@ -58719,25 +59071,36 @@ const fb=document.createElement('button');fb.textContent='open file…';
 const fi=document.createElement('input');fi.type='file';fi.accept='audio/*';fi.style.display='none';
 fb.onclick=()=>fi.click();
 fi.onchange=async()=>{if(!fi.files[0])return;
-  if(playing||dead||finished){restart(null);return;}   // clean slate first
-  if(await startTrack(URL.createObjectURL(fi.files[0])))hidePicker();};
+  const f=fi.files[0];
+  if(playing||dead||finished){          // a clean world needs a reload, and the
+    await stashFile(f);                 // File has to be handed across it
+    restart(FILEKEY); return;
+  }
+  curFile=f;
+  if(await startTrack(URL.createObjectURL(f)))hidePicker();};
 picker.append(fb,fi);
-// Credits. The shipped songs are original, so this is courtesy rather than
-// obligation -- but the CC-BY reference set, when present, carries a licence
-// requirement to credit somewhere a listener can reasonably find it, and this
-// is that place. Shown exactly when those tracks are OFFERED in the picker:
-// the release build empties CCBY_TRACKS outright, and locally they are behind
-// ?dev=1, so the credit travels with the buttons that play them.
+// Credits, and now an OBLIGATION rather than a courtesy: the shipping set is
+// CC BY 4.0, which requires the credit to travel with the audio. So this is
+// unconditional -- it is not gated on ?dev=1 and not gated on a list being
+// non-empty, because the songs it names are the songs the picker offers.
+// --no-tracks is the one build that ships no audio; it empties GAME_TRACKS,
+// and the licence block follows the tracks rather than the page.
 {
   const cr=document.createElement('div'); cr.id='credits';
-  cr.innerHTML='Music written for this game &mdash; generated by '
-    +'<span style="color:#33ff55">tools/make_music.py</span>, MIT licensed.'
-    +(DEVLIST&&CCBY_TRACKS.length      // shown exactly when they are OFFERED
-      ? '<br><br>Reference tracks (dev only): Ready Aim Fire, Heavy Interlude, '
-        +'Cut And Run, Hard Boiled, Severe Tire Damage by Kevin MacLeod '
-        +'(incompetech.com), licensed under Creative Commons: By Attribution 4.0 '
-        +'<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" '
-        +'rel="noopener">creativecommons.org/licenses/by/4.0/</a>'
+  cr.innerHTML=(GAME_TRACKS.length
+    ? 'Cut And Run, Hard Boiled, Severe Tire Damage and Ready Aim Fire by '
+      +'Kevin MacLeod (incompetech.com), licensed under Creative Commons: '
+      +'By Attribution 4.0 '
+      +'<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" '
+      +'rel="noopener">creativecommons.org/licenses/by/4.0/</a>'
+      +'<br><br>bright-hook-b, cool-b2 and cool-c-10 are original to this '
+      +'project and MIT licensed.'
+    : 'Load your own audio with <span style="color:#33ff55">open file&hellip;</span>')
+    +(DEVLIST&&DEV_TRACKS.length
+      ? '<br><br>Dev-only reference set: the original songs generated by '
+        +'<span style="color:#33ff55">tools/make_music.py</span> and '
+        +'<span style="color:#33ff55">tools/ace_gen.py</span>, MIT licensed, '
+        +'plus Heavy Interlude by Kevin MacLeod under the same CC BY 4.0.'
       : '');
   picker.append(cr);
 }
@@ -58771,8 +59134,20 @@ if(qs.get('shots')){
   }
 }
 const wantTrack=qs.get('track');
-if(!wantTrack)showPicker();
-if(wantTrack){
+if(!wantTrack)showMenu();          // the menu is the front of the cabinet
+if(wantTrack)(async()=>{
+  // Resolve what we are actually playing FIRST. ?track=__file means the player
+  // picked their own audio and it was stashed in IndexedDB across the reload;
+  // everything else is a file in tracks/. Both then share one autostart path.
+  let src='tracks/'+wantTrack, label=wantTrack.replace(/\.mp3$/,'');
+  if(wantTrack===FILEKEY){
+    const f=await takeFile();
+    // No stash means the browser refused to keep it (private mode, blocked
+    // storage, a hand-typed URL). Land on the MENU rather than a black world
+    // with nothing to press.
+    if(!f){showMenu();return;}
+    curFile=f; src=URL.createObjectURL(f); label=f.name.replace(/\.[^.]+$/,'');
+  }
   // Changing track RELOADS the page (restart()), and a reload arrives with no
   // user activation — so on iOS this first attempt is always refused, and the
   // recovery path below is the only thing that starts the second level of a
@@ -58785,20 +59160,17 @@ if(wantTrack){
   // refused, SAY so — a silent black world gives the player nothing to do.
   const go=async()=>{
     if(playing||picker.style.display==='flex')return;   // picker owns its taps
-    if(await startTrack('tracks/'+wantTrack)){
+    if(await startTrack(src)){
       tapEl.style.display='none';
       removeEventListener('pointerdown',go);removeEventListener('keydown',go);
     }
   };
   addEventListener('pointerdown',go);addEventListener('keydown',go);
-  startTrack('tracks/'+wantTrack).then(ok=>{
-    if(!ok){
-      document.getElementById('tapname').textContent=
-        wantTrack.replace(/\.mp3$/,'').toUpperCase();
-      tapEl.style.display='flex';
-    }
-  });
-}
+  if(!await startTrack(src)){
+    document.getElementById('tapname').textContent=label.toUpperCase();
+    tapEl.style.display='flex';
+  }
+})();
 </script>
 </body>
 </html>

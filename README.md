@@ -10,7 +10,7 @@ different track and you get a different one.
 
 **Play it:** [thoracle.github.io/hypersonic](https://thoracle.github.io/hypersonic/),
 or open `index.html` locally. It is one self-contained file — no build step, no
-server, no network, nothing to install. Nine songs ship with it, and
+server, no network, nothing to install. Seven songs ship with it, and
 **open file…** in the song picker takes any audio file on your machine.
 
 **[Field Manual](https://claude.ai/code/artifact/fedcc5f6-1c07-45f1-bc51-8b8405ae112c)**
@@ -47,22 +47,31 @@ server, no network, nothing to install. Nine songs ship with it, and
 `server.py` is not `http.server`: it adds HTTP Range support, which `<audio>`
 seeking requires, and `Cache-Control: no-store`.
 
-## The music is code too
+## The music
 
-All five songs are original, written as a program: `tools/make_music.py`
-renders them deterministically from a small synthesis toolkit. They are MIT
-like everything else here, so nothing in this repo owes anyone attribution.
+Seven songs ship. Four are by **Kevin MacLeod** (incompetech.com) under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/): *Cut And Run*,
+*Hard Boiled*, *Severe Tire Damage*, *Ready Aim Fire*. The other three,
+*bright-hook-b*, *cool-b2* and *cool-c-10*, are original to this project and
+MIT like the code. They were chosen by listening — see [tracks/CREDITS.md](tracks/CREDITS.md)
+for the attribution that has to travel with the four if you fork or re-host.
 
-They were not composed by ear. Each aims at the measured *fingerprint* of a
-licensed track it replaced — percussive share, tempo, brightness, dynamic range
-— because that fingerprint is exactly what the game reads to pick the biome,
-the bestiary and the boss. `tools/fingerprint.py` measures it offline in about
-a second, which is what made composing against a target practical.
+The repo can also *write* music: `tools/make_music.py` renders original songs
+deterministically from a small synthesis toolkit, and they were the shipping
+set for a while. They lost a listening comparison to the four above and are now
+a dev-only reference — run the game with `?dev=1` to hear both sets side by
+side. They are MIT like the rest of the code.
 
-    python3 tools/make_music.py tracks     # regenerate the songs
-    python3 tools/fingerprint.py           # measure what they became
+    python3 tools/make_music.py tracks     # render the original songs
+    python3 tools/fingerprint.py           # measure what any track will build
+
+The fingerprint is what the game reads to choose the biome, the bestiary and
+the boss, which is why measuring a candidate track takes about a second and is
+worth doing before you play it.
 
 ## Licence
 
-MIT (`LICENSE`) — the code, and the music. The bundled Three.js and the Press
-Start 2P typeface keep their own licences; see [THIRD-PARTY.md](THIRD-PARTY.md).
+MIT (`LICENSE`) — the code, and three of the seven songs. **The other four
+are not MIT**: they are CC BY 4.0 and require attribution wherever they travel. The bundled Three.js
+and the Press Start 2P typeface keep their own licences too; all of it is in
+[THIRD-PARTY.md](THIRD-PARTY.md).

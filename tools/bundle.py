@@ -76,19 +76,21 @@ def inline_font(html):
 
 def drop_game_tracks(html):
     """--no-tracks ships no audio, so the picker must not offer any -- and the
-    CC-BY credit must not name songs that are not there."""
+    CC-BY credit must not name songs that are not there. game.html branches the
+    credits block on GAME_TRACKS.length for exactly this build."""
     m = re.search(r"const GAME_TRACKS=\[.*?\];", html, re.S)
     if not m: die('could not find GAME_TRACKS')
     return html.replace(m.group(0), 'const GAME_TRACKS=[];   // --no-tracks')
 
 
-def drop_ccby_tracks(html):
-    """The CC-BY set is a local A/B reference only. Shipping it would put an
-    attribution obligation on every fork of the built page; the shipped songs
-    are original, so the public build carries no music licence at all."""
-    m = re.search(r"const CCBY_TRACKS=\[.*?\];", html, re.S)
-    if not m: die('could not find CCBY_TRACKS')
-    return html.replace(m.group(0), 'const CCBY_TRACKS=[];   // dev-only reference set')
+def drop_dev_tracks(html):
+    """The generated songs are a local A/B reference only -- they lost the
+    listening call to the CC-BY set and are kept for comparison, not for
+    shipping. Emptying the list is what keeps the picker honest AND keeps the
+    dev half of the credits block from naming songs the build does not have."""
+    m = re.search(r"const DEV_TRACKS=\[.*?\];", html, re.S)
+    if not m: die('could not find DEV_TRACKS')
+    return html.replace(m.group(0), 'const DEV_TRACKS=[];   // dev-only reference set')
 
 
 def drop_qa_tracks(html):
@@ -113,7 +115,7 @@ def main():
     html = read('game.html')
     html = inline_font(html)
     html = drop_qa_tracks(html)
-    html = drop_ccby_tracks(html)
+    html = drop_dev_tracks(html)
     tracks = game_tracks(html)
     if a.no_tracks:
         html = drop_game_tracks(html)
@@ -141,8 +143,12 @@ def main():
             total += os.path.getsize(src)
         print(f'  tracks/             {len(tracks)} files, '
               f'{sum(os.path.getsize(os.path.join(tdir,t)) for t in tracks)/1e6:6.2f} MB')
-        # no ATTRIBUTION.md: the shipped music is original. release.py writes
-        # a CREDITS.md saying so -- courtesy, not obligation.
+        # The shipped music is CC BY 4.0, so attribution must travel with it.
+        # release.py writes tracks/CREDITS.md; the built page carries the same
+        # credit in the picker. A bundle built WITHOUT release.py therefore has
+        # the in-page credit but no file, which is why this says so out loud.
+        print('  tracks are CC BY 4.0 (Kevin MacLeod) -- ship tracks/CREDITS.md '
+              'beside them; tools/release.py writes it')
     print(f'  total               {total/1e6:6.2f} MB  ->  {a.out}/')
 
 

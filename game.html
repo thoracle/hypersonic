@@ -152,39 +152,37 @@
     text-shadow:0 0 8px #33ff55;text-align:right;white-space:pre;line-height:2.0;
     font-family:'Press Start 2P',ui-monospace,monospace;pointer-events:none}
   #viz{position:fixed;top:12px;right:12px;z-index:2;pointer-events:none}
-  #bigscore{position:fixed;top:42px;left:50%;transform:translateX(-50%);z-index:2;
+  #bigscore{position:fixed;top:38px;left:50%;transform:translateX(-50%);z-index:2;
     font-family:'Press Start 2P',ui-monospace,monospace;
-    font-size:30px;font-weight:400;letter-spacing:0.04em;
+    font-size:20px;font-weight:400;letter-spacing:0.05em;
     color:#eaffef;text-shadow:0 0 6px #33ff55,0 0 18px #33ff55,0 2px 0 #063;
     font-variant-numeric:tabular-nums;pointer-events:none}
-  #shield{position:fixed;top:100px;left:50%;transform:translateX(-50%);z-index:2;
-    width:280px;height:10px;border-radius:5px;pointer-events:none;
-    background:#00000066;border:1px solid #33ff5566}
-  #shieldfill{height:100%;width:100%;border-radius:4px;background:#33ff55;
-    box-shadow:0 0 8px #33ff55;transition:width 0.12s,background 0.2s}
-  #lvl{position:fixed;top:114px;left:50%;transform:translateX(-50%);z-index:2;
-    font-size:12px;letter-spacing:0.55em;pointer-events:none}
-  #lvl span{color:#173423}
-  #lvl span.on{color:#33ff55;text-shadow:0 0 8px #33ff55}
-  #od{position:fixed;top:134px;left:50%;transform:translateX(-50%);z-index:2;
-    font-size:11px;letter-spacing:0.5em;pointer-events:none}
-  #od span{color:#3a1038}
-  #od span.on{color:#ff3ce0;text-shadow:0 0 8px #ff3ce0}
-  /* There is no HUD counter for locks or for missiles in flight, and that is
-     deliberate after two attempts at one. Rez puts the lock count in the
-     CENTRE OF THE RETICLE and nowhere else; Panzer Dragoon paints targets with
-     a free reticle and shows nothing but the targets. Neither has a HUD
-     readout, because in both the volley itself IS the readout -- big trailed
-     homing shots streaming out one per target, each with its own note. You
-     watch the missiles, not a number. So the effort belongs on the TARGET
-     MARKERS and the volley, which is where it now is. */
+  /* ONE LINE instead of three. The shield bar was 10px tall with a row of
+     evolution pips under it and a row of overdrive pips under that -- three
+     stacked rows saying three small things. The bar is slim now and the two
+     states ride its ends, which is where a slimline bar puts its readouts. */
+  #shieldrow{position:fixed;top:66px;left:50%;transform:translateX(-50%);z-index:2;
+    display:flex;align-items:center;gap:9px;pointer-events:none;
+    font-family:'Press Start 2P',ui-monospace,monospace;font-size:8px;
+    letter-spacing:0.06em;white-space:nowrap}
+  #shield{width:214px;height:5px;border-radius:3px;
+    background:#00000077;border:1px solid #33ff5544;overflow:hidden}
+  #shieldfill{height:100%;width:100%;background:#33ff55;
+    box-shadow:0 0 7px #33ff55;transition:width 0.12s,background 0.2s}
+  /* The two states keep their hues -- green is the ship, magenta is power --
+     because colour is the game's first alphabet and these are the same two
+     things the pips were saying. */
+  #mk{color:#2a6b45;min-width:52px;text-align:right}
+  #mk.on{color:#33ff55;text-shadow:0 0 8px #33ff55}
+  #odn{color:#5a2456;min-width:52px;text-align:left}
+  #odn.on{color:#ff3ce0;text-shadow:0 0 8px #ff3ce0}
   /* SECTION BANNER, zone-entrance style. It used to be a world-space popup
      drifting past with the terrain, which made the one label that describes
      the WHOLE passage read like a score pop. Now it is stationary DOM at the
      foot of the top-centre stack (od ends at ~148), so it lands under the HI
      score and the track name and holds still while the world moves under it.
      Sized in ch so the two lines centre on each other without measuring. */
-  #zone{position:fixed;top:170px;left:50%;transform:translateX(-50%);z-index:2;
+  #zone{position:fixed;top:96px;left:50%;transform:translateX(-50%);z-index:2;
     font-family:'Press Start 2P',ui-monospace,monospace;text-align:center;
     pointer-events:none;opacity:0;white-space:nowrap}
   #zone .cls{display:block;font-size:17px;letter-spacing:0.22em;color:#cfefff;
@@ -253,10 +251,14 @@
   #overgo{font-size:10px;letter-spacing:0.1em;color:#eaffef;
     text-shadow:0 0 8px #33ff55;animation:blink 1.1s step-end infinite}
   @keyframes blink{50%{opacity:0}}
-  #hiscore{position:fixed;top:22px;left:50%;transform:translateX(-50%);z-index:2;
+  /* The TRACK is the title of the level, so it sits on top like one. The HI
+     score used to share this line; it is a between-runs number and the end
+     screen already ranks it, so in flight it was just noise beside the thing
+     the player chose. */
+  #hiscore{position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:2;
     font-family:'Press Start 2P',ui-monospace,monospace;
-    font-size:9px;letter-spacing:0.08em;color:#8fc4c6;
-    text-shadow:0 0 6px #33ff5588;pointer-events:none}
+    font-size:9px;letter-spacing:0.14em;color:#8fc4c6;
+    text-shadow:0 0 8px #33ff5566;pointer-events:none}
   /* RETRO is the vector-cabinet look, and a cabinet has no debug overlay.
      The dev readout (lower left: speeds, tuning constants, keybind help) and
      the run readout (lower right) are both dense green text blocks that fight
@@ -268,7 +270,7 @@
   body.retro #hud, body.retro #score{display:none}
   /* the track playing, beside the HI score -- it matters more once the run
      readout is gone, and this is the one label that is true all run */
-  #hiscore .trk{color:#5f9ea6;margin-left:1.1em}
+  #hiscore .trk{color:#8fc4c6}
   #hstable{font-size:12px;letter-spacing:0.04em;line-height:2.3;
     color:#7ddb92;white-space:pre;text-shadow:0 0 8px #33ff5566}
   #hstable .new{color:#ffd76a;text-shadow:0 0 10px #ffaa22}
@@ -296,11 +298,11 @@
     #radar{left:6px}
     #viz{right:6px}
     #hiscore{top:4px;font-size:7px}
-    #bigscore{top:15px;font-size:20px}
-    #shield{top:39px;width:190px;height:7px;border-radius:4px}
-    #lvl{top:50px;font-size:9px;letter-spacing:0.45em}
-    #od{top:62px;font-size:9px;letter-spacing:0.4em}
-    #zone{top:94px}
+    #bigscore{top:14px;font-size:15px}
+    #shieldrow{top:34px;gap:7px;font-size:7px}
+    #shield{width:150px;height:4px}
+    #mk,#odn{min-width:42px}
+    #zone{top:60px}
     #zone .cls{font-size:12px;letter-spacing:0.18em}
     #zone .idx{font-size:7px;margin-top:5px}
   }
@@ -403,8 +405,10 @@
 <div id="picker"><h1>SELECT TRACK</h1></div>
 <div id="tune"></div>
 <div id="hud">select a track</div><div id="score"></div><div id="bigscore">0</div>
-<div id="shield"><div id="shieldfill"></div></div>
-<div id="lvl"></div><div id="od"></div>
+<div id="shieldrow"><span id="mk"></span>
+  <div id="shield"><div id="shieldfill"></div></div>
+  <span id="odn"></span></div>
+
 <div id="zone"><span class="cls"></span><span class="idx"></span></div>
 <div id="dmg"></div>
 <canvas id="radar" width="160" height="160"></canvas>
@@ -594,6 +598,17 @@ const TU={
   // phone). EXPO buys precision where the thumb actually lives: half stick is
   // now ~1/4 the old speed while full stick keeps 83% of it.
   JOY_RATE:0.95, JOY_EXPO:2.2, JOY_DEAD:0.12,
+  // How far a drone's closing rate may stray from world speed, taken from the
+  // strength of the onset that spawned it. 1.0 is 0.79x-1.21x; 0 restores one
+  // uniform rate for everything.
+  // The knob exists for the FEEL PASS, not because anything convicted this of
+  // a problem. It was briefly defaulted to 0.7 while chasing a report that
+  // targets were harder to hold; that turned out to be a false lead -- the
+  // accuracy drop it was blamed for belongs to flock leaders in an earlier
+  // session, and narrowing the spread moved bot accuracy 74.8% -> 74.7%, which
+  // is noise. Default restored to the value that actually shipped and was
+  // measured. Do not change it again without a number.
+  VZ_SPREAD:1.0,
   // section boundaries: a timbre change, or an intensity regime change
   SEC_NOV:0.16, SEC_JUMP:0.35,
   // terrain macro shape (the P1 lever)
@@ -625,6 +640,7 @@ const TUNEDEFS=[
   ['TOUCH STICK',[
     [TU,'JOY_RATE','max screens/s',0.3,2.0,0.05],
     [TU,'JOY_EXPO','fine-control expo',1.0,3.5,0.1],
+    [TU,'VZ_SPREAD','enemy speed spread',0,1.5,0.05],
     [TU,'JOY_DEAD','dead zone',0,0.35,0.01]]],
   ['SECTIONS',[
     [TU,'SEC_NOV','novelty trip',0.05,0.40,0.01],
@@ -1355,25 +1371,28 @@ function startCine(phase){
   if(phase==='drop')[0,4,7].forEach((d,j)=>tone(nt(d),t0+j*0.1,0.8,'triangle',0.14));
   else [0,4,7,12].forEach((d,j)=>tone(nt(d%8),t0+j*0.12,0.6,'triangle',0.14));
 }
-const lvlEl=document.getElementById('lvl');
-const odEl=document.getElementById('od');
+const mkEl=document.getElementById('mk');
+const odEl=document.getElementById('odn');
 // overdrive is a HUD-only readout (user call): four pips under the
 // evolution row, MAGENTA because the Overdrive rings are (see ITEM_C --
 // they left the aggro hue band, and this readout has to follow them or the
 // pickup stops being legible as the thing that fills these pips)
 function setOD(pop){
-  odEl.innerHTML=[0,1,2,3].map(i=>
-    `<span class="${i<overdrives?'on':''}">◆</span>`).join('');
-  if(pop)odEl.animate([{transform:'translateX(-50%) scale(1.5)'},
-    {transform:'translateX(-50%) scale(1)'}],{duration:240,easing:'ease-out'});
+  // a COUNT, not a row of dots: it says the number without making the player
+  // read four pips to find it, and it costs one line instead of one row
+  odEl.textContent='OD\u00d7'+overdrives;
+  odEl.className=overdrives>0?'on':'';
+  if(pop)odEl.animate([{transform:'scale(1.5)'},{transform:'scale(1)'}],
+    {duration:240,easing:'ease-out'});
 }
 function setShipForm(){   // evolution pips under the shield bar + THE HULL
   for(let i=1;i<=3;i++)formL[i].visible=shipLevel>=i;
   if(vizMode===2)bzWrap(ship,true);        // dress fresh parts in BZ wire
-  lvlEl.innerHTML=[0,1,2,3].map(i=>
-    `<span class="${i<=shipLevel?'on':''}">◆</span>`).join('');
-  lvlEl.animate([{transform:'translateX(-50%) scale(1.45)'},
-                 {transform:'translateX(-50%) scale(1)'}],{duration:220,easing:'ease-out'});
+  // the hull's MARK, which is what the evolution actually is
+  mkEl.textContent='MK '+['I','II','III','IV'][Math.max(0,Math.min(3,shipLevel))];
+  mkEl.className=shipLevel>0?'on':'';
+  mkEl.animate([{transform:'scale(1.45)'},{transform:'scale(1)'}],
+               {duration:220,easing:'ease-out'});
 }
 setShipForm();
 // shield bubble: flashes into view around the ship on damage, fades out.
@@ -1783,7 +1802,7 @@ function spawnPod(laneX,p){
   const wx=(laneX+0.5)*LANE_W-W/2;
   m.position.set(wx,145+p*40,-(HORIZON+220));
   bump('pod');
-  m.userData={type:'pod',bounty:200,queued:0,flash:0.6,glow,
+  m.userData={type:'pod',bounty:200,tagBase:9,queued:0,flash:0.6,glow,
     phase:hash(globalRow,11)*6.28};
   enemies.add(m); scene.add(m);
 }
@@ -1822,7 +1841,7 @@ function spawnLayer(laneX,p){   // laneX unused: the layer owns its own entry
   const dir=camX>0?-1:1;
   m.position.set(-dir*(W/2+50),120+p*30,-(HORIZON+200));
   bump('layer');
-  m.userData={type:'layer',bounty:300,elite:1,queued:0,flash:0.6,vx:dir*TU.LAY_VX,dir,
+  m.userData={type:'layer',bounty:300,elite:1,tagBase:12,queued:0,flash:0.6,vx:dir*TU.LAY_VX,dir,
     phase:hash(globalRow,13)*6.28,lastMineX:null,born:songT};
   enemies.add(m); scene.add(m);
 }
@@ -1834,7 +1853,7 @@ function dropMine(src){
   glow.scale.setScalar(6); m.add(glow);
   m.position.copy(src.position); m.position.y-=5;
   bump('mine');
-  m.userData={type:'mine',bounty:10,queued:0,flash:0.4,noWave:true,glow,
+  m.userData={type:'mine',bounty:10,tagBase:6,queued:0,flash:0.4,noWave:true,glow,
     phase:hash(globalRow,17)*6.28};
   enemies.add(m); scene.add(m);
 }
@@ -1907,7 +1926,7 @@ function spawnItem(kind,pos){
       Math.min(pos.z,-HORIZON*0.35));
   }else m.position.set(camX+(hash(globalRow,23)*2-1)*70,125,-HORIZON*0.85);
   itemsSpawned++; bump('item-'+kind);
-  m.userData={type:'item',kind,bounty:50,queued:0,flash:0.6,noWave:true,glow,
+  m.userData={type:'item',kind,bounty:50,tagBase:9,queued:0,flash:0.6,noWave:true,glow,
     inRange:true,phase:hash(globalRow,19)*6.28};
   enemies.add(m); scene.add(m); ensureTag(m);
   for(let i=0;i<8;i++){const c=kind==='red'?[1,0.24,0.88]:[0.3,0.7,1];
@@ -1963,7 +1982,7 @@ function spawnNode(laneX,p){
   const wx=(laneX+0.5)*LANE_W-W/2;
   m.position.set(Math.max(-W*0.4,Math.min(W*0.4,wx)),135+p*30,-(HORIZON+200));
   nodesSpawned++; bump('node');
-  m.userData={type:'node',bounty:40,hp:4,queued:0,flash:0.6,noWave:true,glow,
+  m.userData={type:'node',bounty:40,hp:4,tagBase:11,queued:0,flash:0.6,noWave:true,glow,
     cage,phase:hash(globalRow,31)*6.28};
   enemies.add(m); scene.add(m);
 }
@@ -2229,7 +2248,9 @@ function spawnDummies(laneX,p,n){
     // Bounded deliberately: the closing rate is the player's shot WINDOW, and
     // 1.24x is about 19% less time to lock and release, which the spawn proof
     // and the ghost-cull still leave honest.
-    const vz=0.82+p*0.42+(hash(globalRow,i+31)-0.5)*0.08;
+    // centred on world speed so the SPREAD dials symmetrically: 0 gives every
+    // drone one uniform rate, which is what it was before this existed.
+    const vz=1+((p-0.5)*0.42+(hash(globalRow,i+31)-0.5)*0.08)*TU.VZ_SPREAD;
     // the glide-down has to use the ADJUSTED flight time or a fast one arrives
     // still high and a slow one flies itself into the ground
     const flightS=(-zs+CAMBACK)/(SPEED*vz);
@@ -2323,6 +2344,25 @@ function steerHunter(m,hunters,dt){
 // every frame in the tag-follow block — no scattered bookkeeping.
 const ENEMYRED=0xff3b3b, ENEMYRED_EM=0x5c0f0f;
 const TAGLOCK=0xff5544;
+// ONE place that decides how big a bracket is, because there were four and
+// three of them disagreed: ensureTag scaled by tagBase*2.6 while the stack and
+// idle-revert paths used the raw tagBase, so a bracket SHRANK 2.6x the moment
+// you stacked a second lock on something -- exactly when you most want to see
+// it. Everything goes through here now.
+// It also refuses to shrink below TAG_MINF of the screen. A sprite scales with
+// perspective like the thing it sits on, which is right for an object and
+// wrong for a MARKER: a locked minelayer far downrange drew a bracket a few
+// pixels across. Screen fraction for a sprite is scale/(2*dist*tan(fov/2)),
+// so the floor inverts that.
+const TAG_MINF=0.05;                       // never under 5% of screen height
+function tagScale(m,mult){
+  const u=m.userData; if(!u.tag)return;
+  const world=(u.tagBase||7)*2.6*(mult||1);
+  const dist=Math.max(1,m.position.distanceTo(cam.position));
+  const floor=TAG_MINF*2*dist*Math.tan(cam.fov*Math.PI/360);
+  const sc=Math.max(world,floor);
+  u.tag.scale.set(sc,sc,1);
+}
 function ensureTag(m){
   if(m.userData.tag)return;
   // A Sprite billboards itself, so the per-frame camera-quaternion copy the
@@ -2330,9 +2370,7 @@ function ensureTag(m){
   const tag=new THREE.Sprite(new THREE.SpriteMaterial({map:tagTex,
     color:0xffffff,transparent:true,fog:false,depthWrite:false,depthTest:false,
     blending:THREE.AdditiveBlending}));
-  const sc=(m.userData.tagBase||7)*2.6;            // bosses wear a bigger box
-  tag.scale.set(sc,sc,1);
-  scene.add(tag); m.userData.tag=tag;
+  scene.add(tag); m.userData.tag=tag; tagScale(m);   // bosses wear a bigger box
 }
 function setQueued(m,on){
   m.userData.queued=on;
@@ -2599,7 +2637,7 @@ function releaseClaim(mis,tNow){
   if(!enemies.has(m)||otherInbound(m,mis))return;
   if(queue.includes(m))return;   // re-locked via press while missile flew
   m.userData.claimed=false; m.userData.queued=0;
-  if(m.userData.tag)m.userData.tag.scale.setScalar(m.userData.tagBase||7); // box reverts to white idle
+  m.userData.stackMul=1; tagScale(m);       // box reverts to its idle size
   tone(320,tNow,0.12,'square',0.1,-120);
 }
 // bullet-sponge support: a boss soaks one missile per hp point and chips
@@ -2649,7 +2687,8 @@ function stackPress(){
   if(P.FIRELOCK>0.5&&tN<fireUntil)return;
   queue.push(m); setQueued(m,true); drawDigit(queue.length); lockFlash=1;
   const stack=queue.reduce((n,x)=>n+(x===m),0);
-  if(m.userData.tag)m.userData.tag.scale.setScalar((m.userData.tagBase||7)*(1+0.18*(stack-1)));
+  m.userData.stackMul=1+0.18*(stack-1);
+  tagScale(m,m.userData.stackMul);          // a stack swells the bracket
   duck(tN,0.14);
   // lock FEEL is instant (grant above); the lock SOUND lands on the 1/16 grid
   vtone(nt(Math.min(queue.length-1,7))*2,tick16(tN),0.14,0.22);
@@ -3060,14 +3099,12 @@ function loadScores(){try{return JSON.parse(localStorage.getItem(scoreKey()))||[
 // every child, which is what silently ate the track name: the tick loop does
 // exactly that the moment your score passes the high score, so the label
 // vanished on any decent run and stayed gone.
-const hiValEl=document.createElement('span');
 const hiTrkEl=document.createElement('span'); hiTrkEl.className='trk';
-hiEl.textContent='';        // the markup ships a static "HI 0" placeholder;
-hiEl.append(hiValEl,hiTrkEl);   // appending without clearing reads "HI 0HI 120"
-setHiVal();
-function setHiVal(){hiValEl.textContent='HI '+fmt(hiScore);}
+hiEl.textContent='';        // the markup ships a static "HI 0" placeholder
+hiEl.append(hiTrkEl);
+// hiScore is still TRACKED -- the end screen ranks against it -- it is just
+// no longer shown in flight.
 function refreshHi(){try{hiScore=loadScores()[0]?.score||0}catch(e){hiScore=0}
-  setHiVal();
   // the track name is player-facing text from a FILENAME, so it goes in as a
   // text node, never as HTML
   hiTrkEl.textContent=curTrack?curTrack.replace(/\.mp3$/,'').toUpperCase()
@@ -3133,7 +3170,13 @@ function showEnd(title,good){
   if(nodesSpawned)stages.push({label:'DATA',pct:Math.round(100*anF),bonus:anBonus});
   runTally(score-accBonus-collBonus-anBonus,stages,rank,boardHTML,good);
   overEl.style.display='flex';
-  setTimeout(()=>overEl.addEventListener('pointerdown',()=>showMenu(),{once:true}),400);
+  // Straight back to the TRACK LIST, not via the menu. Routing the end screen
+  // through the menu added a tap to every track change, and on iOS a track
+  // change already costs an extra one: restart() RELOADS, a reload has no user
+  // activation, so iOS refuses el.play() and the player must clear TAP TO
+  // START as well. Four taps to hear the next song. The menu is still one tap
+  // away from the picker for anyone who wants passenger mode.
+  setTimeout(()=>overEl.addEventListener('pointerdown',()=>showPicker(),{once:true}),400);
 }
 // ---- arcade end-screen tally ----
 // Each stat counts 0 -> final % with a ticking blip (rising as it climbs),
@@ -3660,7 +3703,7 @@ function drawRadar(now){
 // 'viz' is the music orb and it belongs beside 'radar': the two canvases
 // MIRROR each other across the top of the screen, so one of them surviving a
 // cinematic blackout reads as a bug rather than as a choice.
-const hudAll=['hud','score','bigscore','shield','lvl','od','hiscore','radar',
+const hudAll=['hud','score','bigscore','shieldrow','hiscore','radar',
               'viz','touchui','zone']
   .map(id=>document.getElementById(id));
 // Deliberately NOT in hudAll. hudAll is what a cinematic and PASSENGER mode
@@ -4308,7 +4351,9 @@ function tick(now,doRender=true){
       // locked and inbound, the box IS the lock indicator, which is what the
       // HUD counters kept failing to be.
       u.tag.visible=!!(u.queued||u.claimed);
-      u.tag.position.copy(m.position);
+      if(u.tag.visible)tagScale(m,u.stackMul||1);   // the floor is live: a
+      u.tag.position.copy(m.position);              // marker must not shrink
+                                                    // away as the range opens
       const tm=u.tag.material;
       tm.rotation=tNow*1.1;             // SpriteMaterial spins in 2D
       // THE BOX WEARS THE OBJECT'S OWN COLOUR, in every state -- not white
@@ -4392,7 +4437,7 @@ function tick(now,doRender=true){
         queue.push(m); setQueued(m,true); drawDigit(queue.length); lockFlash=1;
         // stacked locks grow the tag so the pile-on reads on the target
         const stack=queue.reduce((n,x)=>n+(x===m),0);
-        if(m.userData.tag)m.userData.tag.scale.setScalar((m.userData.tagBase||7)*(1+0.18*(stack-1)));
+        m.userData.stackMul=1+0.18*(stack-1); tagScale(m,m.userData.stackMul);
         duck(tNow,0.14);
         // lock tones an octave up, in the track's key, TICK on the 1/16 grid
         // (the grant itself stays instant — feel and sound are split)
@@ -4654,8 +4699,7 @@ function tick(now,doRender=true){
     bigscoreEl.animate(
       [{transform:'translateX(-50%) scale(1.3)'},{transform:'translateX(-50%) scale(1)'}],
       {duration:180,easing:'ease-out'});
-    if(score>hiScore){hiScore=score;setHiVal();}   // NOT hiEl.textContent:
-                                                   // that eats the track name
+    if(score>hiScore)hiScore=score;
   }
   // shield: Halo recharge — quiet delay after the last hit, then refill
   if(!dead&&shield<SHIELD_MAX&&tNow-lastHitAt>TU.RECH_DELAY){
@@ -4995,6 +5039,11 @@ for(const t of DEVLIST?[...GAME_TRACKS,...DEV_TRACKS,...QA_TRACKS]:GAME_TRACKS){
     if(await startTrack('tracks/'+t))hidePicker();   // never hide a dead start
   };
   picker.append(b);
+}
+{ // ...and the way back to the menu, since the end screen no longer goes there
+  const mb=document.createElement('button');mb.textContent='\u25c2 MENU';
+  mb.onclick=()=>{hidePicker();showMenu();};
+  picker.append(mb);
 }
 const fb=document.createElement('button');fb.textContent='open file…';
 const fi=document.createElement('input');fi.type='file';fi.accept='audio/*';fi.style.display='none';

@@ -44,8 +44,21 @@
     font-family:'Press Start 2P',ui-monospace,monospace;text-align:center;
     padding:24px;color:#33ff55;font-size:13px;letter-spacing:0.1em;
     text-shadow:0 0 12px #33ff55;line-height:1.9}
-  #rotate small{color:#8fc4c6;font-size:9px;letter-spacing:0.08em}
-  @media (orientation:portrait){body.touchon #rotate{display:flex}}
+  #rotate small{color:#8fc4c6;font-size:9px;letter-spacing:0.08em;
+    max-width:min(420px,88vw);line-height:1.9}
+  #rotate .lock{color:#5f9ea6}
+  #rotate button{margin-top:10px;background:#00000088;color:#33ff55;
+    border:1px solid #33ff5566;padding:12px 24px;cursor:pointer;font-size:10px;
+    font-family:'Press Start 2P',ui-monospace,monospace;letter-spacing:0.04em;
+    touch-action:manipulation}
+  /* Driven by JS, NOT by @media (orientation:portrait). The media query is
+     what shipped, and it works on iPad and HANGS on iPhone -- because an
+     iPhone with Portrait Orientation Lock on (common there, rare on iPad)
+     never reports landscape no matter how the player turns it, so the overlay
+     could never clear and the game was unreachable. One source of truth, and
+     an escape hatch, because a gate nobody can open is worse than a bad
+     layout. */
+  body.portraitblock #rotate{display:flex}
   /* The song list is the one thing here that can be TALLER than the screen —
      seven tracks plus open-file plus credits does not fit a landscape phone —
      and `touch-action:none` page-wide would otherwise leave it unscrollable.
@@ -342,7 +355,11 @@
 <button id="fireBtn">FIRE</button><button id="odBtn">OD</button></div>
 <button id="pauseBtn">II</button>
 <div id="tapstart"><span>TAP TO START</span><em id="tapname"></em></div>
-<div id="rotate">ROTATE TO LANDSCAPE<small>the horizon needs the width</small></div>
+<div id="rotate">ROTATE TO LANDSCAPE
+  <small>the horizon needs the width</small>
+  <small class="lock">Still portrait after turning the phone? Open Control
+  Centre and switch off Portrait Orientation Lock.</small>
+  <button id="rotany">PLAY ANYWAY</button></div>
 <div id="over">
   <span id="overtitle">SHIP DESTROYED</span>
   <div id="overbig">0</div>
@@ -441,6 +458,10 @@ const DYNMAX=DYNQ===null?1:+DYNQ;        // DEFAULT OFF: measured and refuted --
 // (ready-aim-fire pin.hi 35% -> 56% at target 0.62), because the distribution
 // is skewed hard to the top, not centred. Machinery kept behind ?dyn=N for
 // experiments; see tools/macro_study.py for the offline replica that showed it.
+// How long to wait for playback to actually begin before calling a start
+// failed. Generous, because a cold CDN on a phone is slow -- but FINITE,
+// because the alternative is a wedged `starting` flag and a dead retry.
+const PLAY_WAIT=+qs.get('playwait')||8;
 const SPEED=+qs.get('speed')||60;        // world units / s
 const T=+qs.get('delay')||6;             // audio delay (s) -> horizon = T*SPEED
 const HORIZON=T*SPEED;
@@ -2567,6 +2588,33 @@ if(TOUCHUI){
   });
 }
 
+// ---------------- the portrait gate ----------------
+// The game asks for one thing: a viewport WIDER than it is tall. Testing that
+// directly beats @media (orientation:portrait), which is a proxy for it, and
+// which reported portrait forever on a rotation-locked iPhone.
+// It is still only a gate for TOUCH devices -- a narrow desktop window is a
+// choice the player made.
+let rotWaived=false, rotPoll=0;
+function portraitCheck(){
+  const block=TOUCHUI&&!rotWaived&&innerHeight>innerWidth;
+  document.body.classList.toggle('portraitblock',block);
+  // A gate that only opens on an EVENT stays shut whenever that event does
+  // not arrive -- and iOS is famously unreliable about firing resize after a
+  // rotation (the same unreliability the orientationchange handler below
+  // already works around by re-dispatching resize three times). Reproduced
+  // here: a viewport resized to 1000x330 kept the overlay up until a resize
+  // was dispatched by hand. So while the gate is UP, poll. It costs nothing
+  // once it is down, and it means no missed event can strand the player.
+  if(block&&!rotPoll)rotPoll=setInterval(portraitCheck,500);
+  else if(!block&&rotPoll){clearInterval(rotPoll);rotPoll=0;}
+}
+document.getElementById('rotany').addEventListener('click',()=>{
+  rotWaived=true; portraitCheck();      // for the rest of the session: a
+});                                     // player who waives it means it
+addEventListener('resize',portraitCheck);
+addEventListener('orientationchange',portraitCheck);
+portraitCheck();
+
 // ---------------- game state ----------------
 const queue=[], pending=[], pendingSet=new Set();
 let lastLockAt=-9, fireUntil=0;
@@ -4348,12 +4396,36 @@ async function startTrack(src){
     // track is ACTUALLY playing, because every caller needs to know.
     actx.resume().catch(()=>{});
     el.src=src; if(MUTEQA)el.muted=true;
-    await el.play(); playing=true;
+    // play() is CALLED synchronously here, so the activation is spent
+    // correctly -- only the WAIT below is bounded.
+    const p=el.play();
+    // A stalled media load does NOT reject: play() stays PENDING for as long
+    // as the bytes never arrive. Awaiting it bare left `starting` true
+    // forever, and because `starting` makes every later call an instant
+    // no-op, the TAP TO START retry then issued no request at all and the
+    // player was stuck until a manual reload. Observed on a wedged media
+    // stack: loadstart -> stalled, readyState 0, no error, ever.
+    // So wait a bounded time and then judge by whether playback ACTUALLY
+    // began rather than by whether the promise settled.
+    await Promise.race([p.catch(e=>{throw e}),
+                        new Promise(r=>setTimeout(r,PLAY_WAIT*1000))]);
+    // paused flips false the instant play() is called, even while stalled, so
+    // it cannot be the test on its own -- readyState/currentTime are what say
+    // real data arrived.
+    if(el.paused||!(el.readyState>=3||el.currentTime>0))
+      throw new Error('playback did not start in '+PLAY_WAIT+'s');
+    playing=true;
     startCine('drop');            // masks the spawn-dead first T seconds
     const mt=src.match(/tracks\/(.+)$/); curTrack=mt?mt[1]:null;
     refreshHi();
-  }catch(e){ console.warn('start failed',e.message); }
-  starting=false;
+  }catch(e){
+    console.warn('start failed',e.message);
+    // Leave nothing half-running: if the load was merely slow it could still
+    // begin AFTER we gave up, and audio playing under a game that thinks it
+    // never started is worse than silence. The retry gets a clean attempt.
+    try{el.pause();}catch(_){}
+  }
+  starting=false;                 // ALWAYS, or the retry path is dead
   return playing;
 }
 // song-select modal: shown at load (unless ?track= autostarts), and again

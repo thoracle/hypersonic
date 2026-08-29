@@ -152,6 +152,19 @@
     text-shadow:0 0 8px #33ff55;text-align:right;white-space:pre;line-height:2.0;
     font-family:'Press Start 2P',ui-monospace,monospace;pointer-events:none}
   #viz{position:fixed;top:12px;right:12px;z-index:2;pointer-events:none}
+  /* THE RHYTHM READOUT, directly under the orb that showed you the beat.
+     Ephemeral by design: it is the grade for ONE release and it is wrong the
+     moment you fire again, so it fades rather than sitting there. Right-
+     aligned to the orb's own right edge so the two read as one instrument. */
+  /* CENTRED on the orb, not aligned to its right edge: the orb is a disc and
+     its axis is the middle, so text hung off the corner reads as a separate
+     element instead of as the orb's own caption. The box is the orb's exact
+     width and the text centres inside it, which keeps the centre fixed however
+     long the verdict is -- the same reason the shield row became a grid. */
+  #rcread{position:fixed;top:176px;right:12px;width:160px;z-index:2;
+    pointer-events:none;font-family:'Press Start 2P',ui-monospace,monospace;
+    font-size:9px;letter-spacing:0.10em;text-align:center;opacity:0;
+    white-space:nowrap;text-shadow:0 0 8px currentColor}
   #bigscore{position:fixed;top:30px;left:50%;transform:translateX(-50%);z-index:2;
     font-family:'Press Start 2P',ui-monospace,monospace;
     font-size:21px;font-weight:400;letter-spacing:0.02em;
@@ -309,6 +322,7 @@
     #radar,#viz{width:92px;height:92px;top:6px}
     #radar{left:6px}
     #viz{right:6px}
+    #rcread{top:102px;right:6px;width:92px;font-size:7px;letter-spacing:0.08em}
     #hiscore{top:4px;font-size:7px;letter-spacing:0.18em}
     #bigscore{top:13px;font-size:15px}
     #shieldrow{top:32px;column-gap:8px;font-size:7px;width:250px}
@@ -351,8 +365,8 @@
   <div class="row"><i>MOUSE</i><span>Aim. The ship flies itself.</span></div>
   <div class="row"><i>HOLD CLICK</i><span>Sweep-lock every target you pass over.
     Up to eight.</span></div>
-  <div class="row"><i>RELEASE</i><span>Fire the volley. <b>On the beat</b> to
-    build the chain.</span></div>
+  <div class="row"><i>RELEASE</i><span>Fire the volley &mdash; <b>as a ring
+    hits the orb's rim</b> &mdash; to build the chain.</span></div>
   <div class="row"><i>SPACE</i><span>While holding: stack an extra lock.</span></div>
   <div class="row"><i>E</i><span>Overdrive. Clears the field. Limited.</span></div>
   <div class="row"><i>V</i><span>View: retro &rarr; wire &rarr; shaded.</span></div>
@@ -374,13 +388,13 @@
     to it: faint white in range, solid when locked, pulsing when a missile is
     already running.</div>
   <h2>WHAT COMES AT YOU</h2>
-  <div class="row"><i>10</i><span>Drone &mdash; rides the music in.</span></div>
+  <div class="row drone"><i>10</i><span>Drone &mdash; rides the music in.</span></div>
   <div class="row"><i>10</i><span>Mine &mdash; armed and drifting. Shoot it or
     take the hit.</span></div>
   <div class="row"><i>15</i><span>Swarmer &mdash; small, fast, angry.</span></div>
   <div class="row"><i>20</i><span>Shell &mdash; the counterattack you can shoot
     down.</span></div>
-  <div class="row"><i>25</i><span>Heavy drone &mdash; born of the loudest hits.</span></div>
+  <div class="row drone"><i>25</i><span>Heavy drone &mdash; born of the loudest hits.</span></div>
   <div class="row"><i>40</i><span>Data node &mdash; four hits ANALYZE it and the
     world deepens.</span></div>
   <div class="row"><i>50</i><span>Hunter &mdash; flocks, seeks you, climbs
@@ -402,10 +416,12 @@
     expensive.</span></div>
   <div class="row"><i>+1000</i><span>Items. Rings collected. Also squared.</span></div>
   <div class="row"><i>+1000</i><span>Analyzation. Data nodes opened.</span></div>
-  <div class="lead"><b>Rhythm chain:</b> release within a sixteenth of a beat and
-    the chain climbs. At three and six links your lock capacity grows from eight
-    to ten to twelve. One off-beat release resets it to nothing. This is the
-    difference between shooting at the music and playing it.</div>
+  <div class="lead"><b>Rhythm chain:</b> <b>watch the orb, upper right.</b>
+    Rings rise out of its core, one per beat, and hit the rim exactly on the
+    beat &mdash; release then and the chain climbs. At three and six links your
+    lock capacity grows from eight to ten to twelve. A live chain keeps the rim
+    burning; a miss puts it out and says whether you were early or late. This
+    is the difference between shooting at the music and playing it.</div>
   <h2>FLYING WELL</h2>
   <div class="lead">Release on the beat, always. Shoot the shells &mdash; they
     are targets and they are points. Pop pods at a distance. Do not ignore the
@@ -424,6 +440,7 @@
 <div id="dmg"></div>
 <canvas id="radar" width="160" height="160"></canvas>
 <canvas id="viz" width="160" height="160"></canvas>
+<div id="rcread"></div>
 <div id="hitL" class="hitedge"></div><div id="hitR" class="hitedge"></div>
 <div id="hitT" class="hitedge"></div><div id="hitB" class="hitedge"></div>
 <div id="touchui"><button id="joy"><div id="joyknob"></div></button>
@@ -488,6 +505,15 @@ const LAYQA=!!qs.get('layers');          // QA: a minelayer in every wave plan
 const LEADQA=!!qs.get('leaders');        // QA: force 4-flocks, which carry a
                                          // LEADER (rare in normal play: needs
                                          // p>0.9 and four free wave slots)
+// THE DRONE TIER IS A QA FIXTURE NOW (user call). Drones and heavy drones were
+// the FALLBACK: every wave slot the specials and the flocks did not claim
+// became one, which on a tonal track was most of them. Restricting them to the
+// qa-* levels (and ?drones=1) hands that budget to the FLOCKS, so a real level
+// fields formations rather than a drift of octahedra. The fixtures keep them
+// because the qa-* tracks exist to exercise the spawn mix, not to be played.
+const DRONES=!!qs.get('drones')||/^qa-/.test(qs.get('track')||'');
+// ...and the Field Manual must not sell a tier the level cannot field.
+if(!DRONES)document.querySelectorAll('.row.drone').forEach(e=>e.remove());
 const VIZQA=+qs.get('viz')||0;           // QA: start in viz mode 0/1/2
 const LVQA=+qs.get('lv')||0;             // QA: start at ship form N (+full OD)
 const SEAQA=!!qs.get('sea');             // QA: force the flood
@@ -582,6 +608,15 @@ const TU={
   // rhythm chain — the release grade. Widen ON first if it feels punishing,
   // never GRID: a loose grid fallback is what made the mechanic meaningless.
   RC_ON:0.07, RC_NEAR:0.42, RC_GRID:0.03, RC_CAP:12,
+  // the beat MARKER on the orb. RC_LEAD is the whole anticipation budget: a
+  // human needs ~200ms to act on what they see and the window is +/-70ms, so
+  // a marker that only appears ON the beat cannot be played, only reacted to,
+  // late, every time. The ring's travel is the orb's own radius, so there is
+  // no distance knob -- the instrument is the scale.
+  RC_LEAD:0.55,
+  // BRIGHTNESS is the feedback channel. RC_DIM is how much light a miss takes
+  // off the bezel; RC_HOT is how hot a live chain keeps it burning.
+  RC_DIM:0.5, RC_HOT:0.5,
   // survivability
   MINE_DMG:12, RECH_RATE:14, RECH_DELAY:5.0,
   // bosses (HP is a MULTIPLIER on each species' own hp, so the genus
@@ -631,7 +666,10 @@ const TUNEDEFS=[
     [TU,'RC_ON','onset window s',0.02,0.20,0.005],
     [TU,'RC_NEAR','quiet after s',0.15,1.00,0.02],
     [TU,'RC_GRID','grid window s',0.01,0.08,0.005],
-    [TU,'RC_CAP','payout cap x',4,30,1]]],
+    [TU,'RC_CAP','payout cap x',4,30,1],
+    [TU,'RC_LEAD','ring lead s',0.25,1.20,0.05],
+    [TU,'RC_DIM','miss dim',0.0,0.8,0.05],
+    [TU,'RC_HOT','chain glow',0.0,1.0,0.05]]],
   ['SURVIVAL',[
     [TU,'MINE_DMG','mine damage',4,30,1],
     [TU,'RECH_RATE','recharge /s',4,40,1],
@@ -865,6 +903,19 @@ function tick16(after){
   for(const h of heardOnsets)if(h>=after&&h<=after+0.09)return h;
   return Math.ceil(after/0.0625)*0.0625;
 }
+
+// ---------------- rhythm feedback state -----------------------------------
+// The BEAT MARKER lives on the MUSIC ORB (upper right), not on the reticle.
+// The orb is already the instrument that shows what the music is doing, it
+// HOLDS STILL so the eye learns one place to glance, and it leaves the
+// reticle saying only what is under the cursor. A marker on the reticle
+// competed with the target brackets for the one surface that has to stay
+// readable, and it rode around the screen with the cursor -- the worst
+// possible home for a cue you must find on the music's schedule, not yours.
+let rcHit=0,        // an on-beat release: the orb flares
+    rcMiss=0,       // an off-beat release: the orb loses light
+    onsetFlash=0,   // a heard onset just landed on the bezel
+    rcTxt='', rcCol='', rcAge=1e9;   // the ephemeral verdict under the orb
 
 // ---------------- causal terrain state (identical to stream.html) ----------------
 const ema=(tau)=>({y:0,seed:false,step(v,dt){this.y=this.seed?this.y+(v-this.y)*(1-Math.exp(-dt/tau)):(this.seed=true,v);return this.y;}});
@@ -2188,9 +2239,17 @@ function planWave(){
   if(FP&&FP.percFrac<0.03&&!pods)pods=1;  // tonal world: Defender-rich
   pods=Math.max(0,Math.min(pods,n-tanks-1));
   layers=Math.max(0,Math.min(layers,n-tanks-pods-1));
-  let hunters=Math.round((n-tanks-pods-layers)*perc/total);
+  // The perc/total SPLIT only makes sense while there are two tiers to split
+  // between. With the drones restricted to QA the leftover has nowhere else to
+  // go, so the hunter tier IS the wave, and the percussive-vs-tonal balance
+  // survives in the flock SIZES instead (spawnEnemy sizes on onset strength,
+  // and a percussive track is made of strong onsets).
+  let hunters=DRONES?Math.round((n-tanks-pods-layers)*perc/total)
+                    :n-tanks-pods-layers;
   if(curSecCls==='surge')hunters=Math.max(hunters,Math.min(n-tanks-pods-layers,3));
-  if(hunters===1)hunters=perc>=3?2:0;      // a flock needs at least 2
+  // A lone hunter used to be a waste of a slot when the cheap tier could have
+  // it; with no cheap tier it is simply the smallest thing a wave can field.
+  if(hunters===1&&DRONES)hunters=perc>=3?2:0;      // a flock needs at least 2
   // ...and a flock of TWO is a pair, not a formation, so it carries no leader.
   // Rounding down to 2 is what made leaders unreachable: take the third hunter
   // whenever the wave can afford it, and widen the wave by one to afford it
@@ -2232,10 +2291,21 @@ function spawnEnemy(laneX,p){
   if(podLeft>0&&(p<0.75||remaining<=podLeft)){spawnPod(laneX,p);wavePods++;return;}
   if((wavePlan.layers||0)-waveLayers>0){spawnLayer(laneX,p);waveLayers++;return;}
   const hLeft=wavePlan.hunters-waveHunters;
-  if(hLeft>=2&&p>=0.6){
+  // p>=0.6 was a rule about WHICH TIER a hit earned: soft onsets bought the
+  // cheap one, loud ones a flock. With the cheap tier in QA there is nothing
+  // for a soft onset to become, so it fields a SMALLER flock instead of a
+  // different enemy -- the strength still reads, it just reads as size.
+  if(hLeft>=2&&(p>=0.6||!DRONES)){
     const n=LEADQA?Math.min(hLeft,4,remaining)
                   :Math.min(hLeft,3+(p>0.8?1:0),remaining);
     if(n>=2){spawnFlock(laneX,p,n);waveHunters+=n;return;}
+  }
+  if(!DRONES){
+    // One slot left and no formation to be made of it: a LONE hunter. No new
+    // path -- steerHunter looks for a leader every frame and falls back to
+    // seeking when there is none, which is exactly what a survivor does.
+    if(hLeft>=1){spawnFlock(laneX,p,1);waveHunters++;}
+    return;
   }
   spawnDummies(laneX,p,Math.min(1+(p>=0.6?1:0),remaining));
 }
@@ -2274,6 +2344,36 @@ function spawnDummies(laneX,p,n){
     enemies.add(m); scene.add(m);
   }
 }
+// THE WEDGE, defined once. It was written twice -- once in spawnFlock and
+// once in steerHunter -- and the two disagreed about which way was left:
+// spawn put follower `side` at +SLOT_SIDE while the steering slot was at
+// -SLOT_SIDE. Every follower was born on the WRONG SIDE of the V and spent
+// its whole short life crossing to the other one, which is what the 37-unit
+// slot error was, and why more speed and more force never touched it (the
+// error was almost entirely horizontal: yErr 7 of 37.7, terrain firing on
+// 1.4% of frames). "When N places compute one number, N-1 of them will
+// drift" is already written down in this repo from the bracket-size bug.
+// This is the same mistake, so this is the same fix: one function.
+const slotLat=new THREE.Vector3();
+function slotFor(slot,dir,leaderPos,out){
+  const rank=Math.ceil(slot/2), side=(slot%2?1:-1)*rank;
+  slotLat.set(-dir.z,0,dir.x);
+  out.copy(leaderPos).addScaledVector(dir,-SLOT_BACK*rank)
+     .addScaledVector(slotLat,SLOT_SIDE*side);
+  // ECHELON: each rank also steps UP. Once the wedge tightened to ~6 units of
+  // slop the followers began sitting inside the leader's silhouette and the
+  // ghost-cull started removing wingmen with no honest shot -- the safety net
+  // for "the player always has a valid shot" firing because the formation was
+  // hiding its own members. A flat V seen edge-on is a line, so it needed a
+  // third dimension either way.
+  // UP, and the first attempt at DOWN is why: it put the wing nearer the
+  // ground, terrain avoidance went from firing on 1.7% of follower frames to
+  // 4.5%, and the culls got worse rather than better. Up silhouettes the wing
+  // against the one genuinely empty background this game has -- black sky.
+  out.y+=SLOT_UP*rank;
+  return out;
+}
+const spawnDir=new THREE.Vector3(0,0,1), spawnAt=new THREE.Vector3();
 function spawnFlock(laneX,p,n){
   waveSpawned+=n;
   const fid=++flockN;
@@ -2285,19 +2385,29 @@ function spawnFlock(laneX,p,n){
   // measured ZERO leaders across two full runs on two tracks, for a target the
   // Field Manual sells as "the high-skill, high-value play" (user call).
   const elite=n>=3;
+  // SPAWN IN FORMATION. They used to arrive as a random scatter and only
+  // gather afterwards, which spent the clearest moment to read the shape --
+  // first sight, at range, against empty sky -- on looking like a swarm.
+  // The wedge is the same one steerHunter maintains, so the arrival IS the
+  // formation rather than a thing that resolves into one.
+  const wy=130+p*50, wz=-(HORIZON+220);
   for(let i=0;i<n;i++){
     const leader=elite&&i===0;
     const m=new THREE.Mesh(hunterGeo,
       new THREE.MeshLambertMaterial({color:HUNTER,emissive:HUNTER_EM,flatShading:true,
         fog:false,transparent:true,opacity:0.35}));  // ghost until in weapons range
     const bscale=leader?1.3:1;
-    m.position.set(wx+(hash(fid,i)*2-1)*30, 130+p*50+(hash(fid,i+3)*2-1)*20,
-      -(HORIZON+220)-hash(fid,i+5)*40);
+    // born in the slot the steering will ask them to hold, not a mirror of it
+    if(elite&&i>0)slotFor(i,spawnDir,spawnAt.set(wx,wy,wz),spawnAt);
+    else spawnAt.set(wx,wy,wz);
+    m.position.set(spawnAt.x+(hash(fid,i)*2-1)*4,
+      spawnAt.y+(hash(fid,i+3)*2-1)*8, spawnAt.z-hash(fid,i+5)*10);
     bump(leader?'leader':'hunter');
     m.userData={type:'hunter', kind:leader?'leader':'hunter',
       bounty:leader?100:50, elite:leader?1:0,
-      flock:fid, queued:0, flash:0.6,
-      base:bscale, v:new THREE.Vector3((hash(fid,i+9)*2-1)*10,0,45+hash(fid,i+11)*10)};
+      flock:fid, slot:i, queued:0, flash:0.6,
+      hdg:leader?new THREE.Vector3(0,0,1):null,
+      base:bscale, v:new THREE.Vector3(0,0,45+hash(fid,i+11)*10)};
     enemies.add(m); scene.add(m);
   }
 }
@@ -2309,41 +2419,191 @@ function terrainH(x,z){
   const g=si>=GROWROWS?1:(si/GROWROWS)*(si/GROWROWS)*(3-2*si/GROWROWS);
   return H[si*X+lane]*HMAX*g;
 }
-// boids + seek + terrain avoidance (temp vectors preallocated)
-const HSPD_MAX=82, HSPD_MIN=32;
+// ---------------- hunter steering: Reynolds, done properly ----------------
+// AUDIT (28 Aug, user call): we had classic boids (Reynolds 1987 -- separation,
+// alignment, cohesion) and NO leader following (Reynolds 1999). steerHunter
+// never read u.kind, so a "leader" differed only in bounty, scale and ram
+// damage. The complaint that it is not obvious flocks have leaders was exactly
+// right: behaviourally they did not have one. Four real gaps, all fixed here:
+//
+//  1. EVERY member seeked the ship at full weight, so cohesion and alignment
+//     were nearly redundant -- N independent seekers converging on one point
+//     read as a swarm, not a formation. Now only the LEADER has the goal;
+//     followers pursue a slot behind it. That is Reynolds' leader following,
+//     and it is what makes the structure legible.
+//  2. No "get out of the leader's way". Reynolds' signature detail: a follower
+//     inside the leader's projected path evades sideways. Deference you can
+//     SEE is what says which one is in charge.
+//  3. No ARRIVAL, and a speed floor of 32 that made settling into a slot
+//     physically impossible. Followers now ramp down inside a slowing radius.
+//  4. No force budget. Only the seek term was truncated; separation (x3.0,
+//     unbounded as d->0), cohesion, alignment and terrain were added on top
+//     uncorrected -- and terrain alone reached ~392 against the seek's 140,
+//     so it could swamp everything. Reynolds is explicit: accumulate weighted,
+//     TRUNCATE to max force, then integrate.
+//
+// Terrain avoidance is deliberately added AFTER the truncation rather than
+// inside the budget. Reynolds endorses prioritised blending over a pure
+// weighted sum precisely for collision avoidance, and here it is load-bearing:
+// "never crash into terrain" is a hard design rule, not a preference, so it
+// must not be dilutable by three other behaviours pulling at once.
+// A follower cannot hold a slot that runs as fast as it does -- same-speed
+// pursuit never closes, which is why the first measurement came back with a
+// slot error (38.1) LARGER than the formation's own dimensions. The fix is to
+// give the WING the edge, not to slow the leader: cutting the leader to 71
+// halved the slot error's overshoot but cost 11 points of bot accuracy and
+// four times the escapes, because a slower flock arrives late and leaves.
+const HSPD_MAX=126, HSPD_LEAD=82, HSPD_SOLO=88, HSPD_MIN=32, HSPD_FOLLOW=10;
+// the break: how fast, how long, and with what authority
+const SCATTER_SPD=165, SCATTER_T=1.15, HMAXF_SCATTER=900;
+// Two budgets, because holding station is a harder job than flying at a point.
+// Reynolds' max_force is a property of the character, and a follower correcting
+// against a moving slot legitimately needs more authority than a leader that
+// only has to point itself at the ship.
+const HMAXF=190, HMAXF_FOLLOW=340;
+// how much of a run is spent visibly coming apart -- the whole point of the
+// leader kill, and a thing a screenshot will never catch
+let fmBolt=0;
+const SLOT_BACK=26, SLOT_SIDE=19, SLOT_UP=11;    // behind, out, and up
+// The correction gain and its ceiling. CORR_MAX is the headroom a follower
+// has ABOVE the slot's own speed, so the top speed must cover leader + this
+// or the clamp eats the correction before it can be applied.
+const CORR_K=3.2, CORR_MAX=40, SLOTV_MAX=220;
+const NEIGH=70;               // flockmates outside this do not pull the centroid
+const PATH_LEN=52, PATH_R=15; // the leader's claimed corridor
 const hv1=new THREE.Vector3(), hv2=new THREE.Vector3(), hv3=new THREE.Vector3(),
-      hCen=new THREE.Vector3(), hAli=new THREE.Vector3();
+      hCen=new THREE.Vector3(), hAli=new THREE.Vector3(), hSep=new THREE.Vector3(),
+      hSlot=new THREE.Vector3(), hDir=new THREE.Vector3(), hLat=new THREE.Vector3(),
+      hSlotV=new THREE.Vector3();
 function steerHunter(m,hunters,dt){
   const u=m.userData, v=u.v, pos=m.position;
   hv1.set(0,0,0);
-  // seek the ship
-  hv2.copy(shipPos).sub(pos).normalize().multiplyScalar(HSPD_MAX).sub(v);
-  if(hv2.length()>140)hv2.setLength(140);
-  hv1.add(hv2);
-  // flock: separation (strong, close), cohesion + alignment (gentle)
-  let n=0; hCen.set(0,0,0); hAli.set(0,0,0);
+  // ---- one pass over the flock: separation, centroid, alignment, leader ----
+  let n=0, lead=null;
+  hCen.set(0,0,0); hAli.set(0,0,0); hSep.set(0,0,0);
   for(const o of hunters){
-    if(o===m||o.userData.flock!==u.flock)continue;
+    const ou=o.userData;
+    if(ou.flock!==u.flock)continue;
+    if(o===m)continue;
+    if(ou.kind==='leader')lead=o;
     const d=pos.distanceTo(o.position);
-    hCen.add(o.position); hAli.add(o.userData.v); n++;
+    if(d<NEIGH){ hCen.add(o.position); hAli.add(ou.v); n++; }
     if(d<16&&d>0.01){
-      hv3.copy(pos).sub(o.position).multiplyScalar((16-d)/d);
-      hv1.addScaledVector(hv3,3.0);
+      // Reynolds separation: the NORMALISED offset weighted by 1/d, so the
+      // magnitude depends on distance once rather than twice
+      hv3.copy(pos).sub(o.position).divideScalar(d*d);
+      hSep.add(hv3);
     }
   }
-  if(n){
-    hCen.divideScalar(n).sub(pos); hv1.addScaledVector(hCen,0.35);
-    hAli.divideScalar(n).sub(v);   hv1.addScaledVector(hAli,0.5);
+  // Slots are 32+ apart by construction, so for a follower separation is a
+  // near-collision guard, not a spacing mechanism -- at the old weight it was
+  // blasting wingmen off station whenever a turn brought two close.
+  if(hSep.lengthSq()>0)hv1.addScaledVector(hSep.setLength(HSPD_MAX),
+    u.kind==='leader'?1.6:0.9);
+
+  const follower=u.kind!=='leader'&&lead;
+  const bolting=u.scatter>0;
+  if(bolting)u.scatter-=dt;
+  // HSPD_MAX is the wingman's correction headroom, not a hunter's speed: a
+  // leaderless one has no station to hold and should not tear around at 126.
+  const topSp=bolting?SCATTER_SPD
+             :follower?HSPD_MAX
+             :u.kind==='leader'?HSPD_LEAD:HSPD_SOLO;
+  // The leader's SMOOTHED heading, and the time constant is the formation's
+  // rigidity: the slot hangs off this direction on an arm up to 52 long, so a
+  // heading that snaps around whips the wingmen through a much bigger arc than
+  // the leader itself flies. 0.9s turns the wedge as one body -- which reads
+  // better anyway, a formation that ploughs rather than darts.
+  if(u.hdg&&v.lengthSq()>1e-4)
+    u.hdg.lerp(hv3.copy(v).normalize(),1-Math.exp(-dt/0.9)).normalize();
+  if(bolting){
+    // FLEE, hard and briefly. Full budget so it snaps outward on the frame
+    // the shot lands -- the wedge visibly comes apart, then the survivors
+    // fold back into ordinary hunters as the timer runs out.
+    hv2.copy(u.scatterDir).multiplyScalar(SCATTER_SPD).sub(v);
+    hv1.addScaledVector(hv2,1.0);
+  }else if(follower){
+    // ---- LEADER FOLLOWING (Reynolds 1999) --------------------------------
+    // Arrive at a slot BEHIND the leader, fanned into a wedge by spawn index.
+    // Not AT the leader: seeking the leader itself makes followers pile into
+    // its back and read as a clump.
+    // the SMOOTHED heading, not the raw velocity. The leader is steering at a
+    // moving ship every frame, so its instantaneous direction jitters -- and
+    // the slot is hung off that direction, so the jitter is multiplied by the
+    // offset arm and the followers chase a target that will not sit still.
+    hDir.copy(lead.userData.hdg); if(hDir.lengthSq()<1e-4)hDir.set(0,0,1);
+    hDir.normalize();
+    slotFor(u.slot,hDir,lead.position,hSlot);
+    // ---- ARRIVAL AT A MOVING SLOT, which is not the same problem -----------
+    // Plain arrival commands zero speed AT the target, and this target is
+    // doing 82. So a follower that reached its slot BRAKED TO A STOP while
+    // the slot flew out from under it, then had to re-accelerate -- a
+    // permanent sawtooth no amount of force or top speed can fix, because the
+    // controller was asking for the wrong velocity. That is why raising the
+    // budget 190->340 and the cap 82->105 moved the error barely at all.
+    //
+    // The fix is a feedforward term: desired = THE SLOT'S OWN VELOCITY plus a
+    // correction toward it. A follower sitting in its slot now asks to match
+    // the slot and holds station at zero error, which is the whole point of
+    // flying formation.
+    hSlotV.copy(hSlot);
+    if(u.slotPrev&&dt>1e-5){
+      // difference the slot's position rather than reusing the leader's
+      // velocity: during a turn the slot also SWINGS on its arm, and an
+      // analytic feedforward off the leader alone misses exactly that part
+      hSlotV.sub(u.slotPrev).divideScalar(dt);
+      if(hSlotV.lengthSq()>SLOTV_MAX*SLOTV_MAX)hSlotV.setLength(SLOTV_MAX);
+    }else hSlotV.copy(lead.userData.v);
+    (u.slotPrev||(u.slotPrev=new THREE.Vector3())).copy(hSlot);
+    hv2.copy(hSlot).sub(pos);
+    const d=hv2.length();
+    // proportional correction, capped -- this IS the arrival ramp: it falls to
+    // nothing at the slot, leaving the feedforward holding station alone
+    if(d>0.01)hv2.setLength(Math.min(CORR_MAX,d*CORR_K)); else hv2.set(0,0,0);
+    hv2.add(hSlotV).sub(v);             // desired velocity, then steer to it
+    hv1.addScaledVector(hv2,1.0);
+    fmN++; fmSum+=d; fmY+=Math.abs(hSlot.y-pos.y);
+    // ---- clear the leader's path ------------------------------------------
+    // If I am in front of the leader and near its axis, get out of the way.
+    // This is the behaviour that says, without a word or a colour, which one
+    // of these is in charge.
+    hv3.copy(pos).sub(lead.position);
+    const ahead=hv3.dot(hDir);
+    if(ahead>0&&ahead<PATH_LEN){
+      hLat.copy(hv3).addScaledVector(hDir,-ahead);    // the lateral component
+      const off=hLat.length();
+      if(off<PATH_R){
+        fmFront++;
+        if(off<0.01)hLat.set(hDir.z,0,-hDir.x);       // dead ahead: pick a side
+        hv1.addScaledVector(hLat.setLength(HSPD_MAX),2.2*(1-off/PATH_R));
+      }
+    }
+  }else{
+    // ---- the LEADER (and any hunter without one) seeks the ship -----------
+    // A flock whose leader has been sniped falls back to this automatically:
+    // no bookkeeping, the behaviour simply stops being available. The
+    // formation dissolves into individuals, which is the reward for the kill.
+    hv2.copy(shipPos).sub(pos);
+    if(hv2.lengthSq()>1e-4)hv2.normalize().multiplyScalar(topSp).sub(v);
+    hv1.add(hv2);
+    if(n){                       // leaderless stragglers still flock loosely
+      hCen.divideScalar(n).sub(pos); hv1.addScaledVector(hCen,0.35);
+      hAli.divideScalar(n).sub(v);   hv1.addScaledVector(hAli,0.5);
+    }
   }
-  // terrain avoidance: climb if the ground ahead (0.9s) crowds the belly
+  // ---- ONE budget, truncated, exactly as the catalogue prescribes ---------
+  const budget=bolting?HMAXF_SCATTER:follower?HMAXF_FOLLOW:HMAXF;
+  if(hv1.length()>budget)hv1.setLength(budget);
+  // ---- then terrain, at priority, because the floor is a hard rule --------
   const gHere=groundY(pos.x,pos.z);
   const gAhead=groundY(pos.x+v.x*0.9,pos.z+v.z*0.9);
   const clear=pos.y-Math.max(gHere,gAhead);
-  if(clear<28)hv1.y+=(28-clear)*14;
+  if(clear<28){hv1.y+=(28-clear)*14; if(follower)fmTerr++;}
   v.addScaledVector(hv1,dt);
-  const sp=v.length();
-  if(sp>HSPD_MAX)v.multiplyScalar(HSPD_MAX/sp);
-  else if(sp<HSPD_MIN&&sp>0.01)v.multiplyScalar(HSPD_MIN/sp);
+  const sp=v.length(), floor=follower?HSPD_FOLLOW:HSPD_MIN;
+  if(bolting)fmBolt++;
+  if(sp>topSp)v.multiplyScalar(topSp/sp);
+  else if(sp<floor&&sp>0.01)v.multiplyScalar(floor/sp);
   pos.addScaledVector(v,dt);
   if(pos.y<gHere+16)pos.y=gHere+16;            // hard floor
   m.lookAt(hv2.copy(pos).add(v));              // nose along the velocity
@@ -2455,25 +2715,49 @@ function fireQueue(){
   // off-grid release resets it. Every heard onset is known T early, so
   // grading the release is a subtraction.
   rhythmRel++;
-  {const tR=actx.currentTime; let on=false, near=false;
+  {const tR=actx.currentTime; let on=false, near=false, err=0, errA=1e9;
+   // the SIGNED distance to the nearest heard onset, not just a pass/fail --
+   // "wrong" teaches nothing, "early by 120ms" teaches the next release.
    for(const h of heardOnsets){
-     const d=Math.abs(h-tR);
-     if(d<=TU.RC_NEAR)near=true;           // the music is playing here
-     if(d<=TU.RC_ON){on=true;break;}       // and you landed ON one
+     const a=Math.abs(h-tR);
+     if(a<errA){errA=a;err=tR-h;}          // <0 you were early, >0 late
+     if(a<=TU.RC_NEAR)near=true;           // the music is playing here
+     if(a<=TU.RC_ON)on=true;               // and you landed ON one
    }
    // only when there is nothing to play along TO does the grid stand in,
    // and then tightly (+/-30ms of a 1/8 = 24%, not 72%)
-   if(!on&&!near&&Math.abs(tR-Math.round(tR/0.125)*0.125)<=TU.RC_GRID)on=true;
+   if(!on&&!near){
+     const g=tR-Math.round(tR/0.125)*0.125;
+     if(Math.abs(g)<=TU.RC_GRID)on=true;
+     if(errA>0.5){err=g;errA=Math.abs(g);}  // nothing to grade against but the grid
+   }
+   // The verdict reads out UNDER THE ORB rather than as a world popup. It
+   // belongs beside the thing that showed you the beat -- the cue and the
+   // grade in one place -- and it stops competing with the kill popups, a
+   // fight it was already losing at ~0.6 releases/s against a 0.9s life.
    if(on){rhythm++;rhythmOn++;bestRhythm=Math.max(bestRhythm,rhythm);
      score+=25*Math.min(rhythm,TU.RC_CAP); // capped: no runaway chains
-     popup(mv1.copy(shipPos).add(mv2.set(0,16,-40)),
-       'ON BEAT x'+rhythm,'#ffd76a',1.1);
+     rcSay('ON BEAT x'+rhythm,'#ffd76a');
      vtone(nt(Math.min(rhythm,7))*2,tR+0.02,0.12,0.16);
+     rcHit=1;
    }else{
-     if(rhythm>=2)popup(mv1.copy(shipPos).add(mv2.set(0,16,-40)),
-       'OFF BEAT','#8fc4c6',0.9);
-     rhythm=0;
+     // THE MISS NOW SPEAKS AS LOUDLY AS THE HIT. It used to say nothing below
+     // a 2-chain, so the player who never landed one -- the exact player who
+     // needs the feedback -- got silence, and read the mechanic as broken.
+     // And it says WHICH WAY: "wrong" carries no next action, "early" does.
+     rcSay((err<0?'EARLY ':'LATE ')+Math.round(errA*1000)+'ms','#8fc4c6');
+     // and it is AUDIBLE. The player is listening to music; feedback about
+     // music belongs on the channel their attention is already on. A soft low
+     // fall, never a buzzer -- this is a miss, not an error.
+     tone(150,tR+0.01,0.13,'sine',0.16,-55);
+     if(rhythm>=2)tone(100,tR+0.09,0.20,'sine',0.13,-40);   // and a chain fell
+     rcMiss=1; rhythm=0;
    }
+   // FIRST-RUN TEACH. The About screen documents the mechanic; the player was
+   // not reading it mid-flight. Two nudges, only while nothing has landed --
+   // and they point at the orb, because that is where the answer is.
+   if(!on&&rhythmOn===0&&(rhythmRel===4||rhythmRel===12))
+     rcSay('FIRE AS THE RING HITS THE RIM','#ffd76a');
    P.QUEUE_MAX=8+(rhythm>=3?2:0)+(rhythm>=6?2:0);}
   duck(actx.currentTime,0.3+queue.length*0.1);   // dip music under the volley
   tone(880,actx.currentTime,0.1,'sawtooth',0.2,400);
@@ -2553,7 +2837,7 @@ function popup(pos,txt,color='#eaffef',sc=1){
   // SECTION BANNER is driven by the music and fires regardless.
   // Gated at the source rather than at that one call site, so a caller that
   // becomes reachable later cannot reintroduce this.
-  if(PASSENGER)return;
+  if(PASSENGER)return null;
   const cv=document.createElement('canvas');cv.width=512;cv.height=96;
   const c=cv.getContext('2d');
   c.font=(arcReady?'32px ':'bold 56px ')+arcFont;   // PS2P runs larger per em
@@ -2564,10 +2848,49 @@ function popup(pos,txt,color='#eaffef',sc=1){
   const sp=new THREE.Sprite(new THREE.SpriteMaterial({
     map:new THREE.CanvasTexture(cv),transparent:true,depthTest:false,fog:false}));
   sp.scale.set(52*sc,10*sc,1); sp.position.copy(pos); sp.userData={age:0};
-  scene.add(sp); pops.add(sp);
+  scene.add(sp); pops.add(sp); return sp;
+}
+function killPop(sp){
+  if(!sp||!pops.has(sp))return;
+  scene.remove(sp);sp.material.map.dispose();sp.material.dispose();pops.delete(sp);
 }
 // full kill bookkeeping — shared by direct hits and splash
 function killEnemy(m,tNow){
+  // A LEADER'S DEATH HAS TO BE VISIBLE, or "snipe it first" is a line in the
+  // manual rather than a thing the player learns by doing it. The steering
+  // already degrades on its own -- steerHunter looks for a leader every frame
+  // and falls back to seeking the ship when there is none, so the formation
+  // dissolves into individuals with no bookkeeping at all. What that lacks is
+  // a MOMENT, so the survivors get a scatter impulse and a called-out kill:
+  // the wedge visibly breaks apart on the shot that earned it.
+  if(m.userData.kind==='leader'){
+    // A one-frame velocity nudge was invisible, and the steering was why: the
+    // next frame's seek pulled straight back toward the ship at a 190 budget
+    // (about 3 units of dv per frame, so a 46-unit kick is gone in a quarter
+    // second) and the speed clamp ate most of it before that. So the break is
+    // a STATE with a duration -- a startle response, the flash expansion a
+    // real shoal makes when the fish at the front is taken.
+    let scattered=0;
+    for(const o of enemies){
+      const ou=o.userData;
+      if(o===m||ou.flock!==m.userData.flock||ou.type!=='hunter')continue;
+      const sl=ou.slot||0;
+      ou.scatter=SCATTER_T;
+      const dir=(ou.scatterDir||(ou.scatterDir=new THREE.Vector3()))
+        .subVectors(o.position,m.position);
+      if(dir.lengthSq()<1e-3)dir.set(hash(ou.flock,sl+21)*2-1,0.3,0);
+      dir.x+=(hash(ou.flock,sl+31)*2-1)*0.5;
+      dir.y+=(hash(ou.flock,sl+37)*2-1)*0.4+0.25;   // a shade upward, off the ground
+      // Damp the along-rail component: a boid that bolts straight past the
+      // player is an escape and half a second of nothing to shoot at. Splayed
+      // sideways and up, the break stays on screen and stays shootable, which
+      // is the reward for having made the shot.
+      dir.z*=0.3;
+      dir.normalize();
+      scattered++;
+    }
+    if(scattered)popup(m.position,'FORMATION BROKEN','#ffd76a',1.3);
+  }
   if(m.userData.type==='bay'){
     // a silenced bay takes its pattern out of the boss's rotation; the last
     // one drops the hull shield — CORE EXPOSED, the sponge phase begins
@@ -2961,6 +3284,13 @@ if(LVQA){shipLevel=Math.min(3,LVQA);overdrives=4;setShipForm();}  // QA pose
 let waveKills=0, heat=0.5;             // heat = rolling wave clear-rate (difficulty)
 let rhythm=0, bestRhythm=0, rhythmOn=0, rhythmRel=0;   // the rhythm chain
 const flockSizes={};   // flock-size histogram: a LEADER rides a 3+ formation
+// Does the formation actually FORM? A screenshot cannot answer that -- a wave
+// is in frame for a few seconds and the capture lands where it lands -- so the
+// two claims leader-following makes are measured instead. slotErr: how far a
+// follower sits from the slot it is steering for. frontPct: how much of its
+// life it spends inside the leader's corridor, which the path-clearing term
+// exists to keep near zero. Both are per follower-frame.
+let fmN=0, fmSum=0, fmFront=0, fmY=0, fmTerr=0;
 const waveLog=[];      // one row per planWave() -- see the note there
 // ---- shot telemetry: every missile records launch distance, bearing and
 // elevation off boresight, target type, flight time, and outcome; batches
@@ -3024,6 +3354,10 @@ function flushShots(final){
         macro:+macroE.y.toFixed(3)},
       abs:{lo:+absLo.toFixed(3),hi:+absHi.toFixed(3),p:+absP.toFixed(3)},
       fp:FP, dna:dnaSummary(), flocks:flockSizes, waves:waveLog,
+      formation:fmN?{n:fmN,slotErr:+(fmSum/fmN).toFixed(1),
+                     yErr:+(fmY/fmN).toFixed(1),
+                     terrPct:+(fmTerr/fmN).toFixed(3),
+                     frontPct:+(fmFront/fmN).toFixed(3),bolt:fmBolt}:null,
       // Why did the level end? A run that finishes in seconds is either the
       // ended event arriving early or el.duration lying, and without these
       // three numbers the final row cannot tell those apart.
@@ -3591,8 +3925,25 @@ const VIZ_RANGE=(()=>{
   }
   return out;
 })();
+const rcEl=document.getElementById('rcread');
+// One slot, always the latest. A verdict is a STATE READOUT, not an event
+// stream -- the grade for the release before last is simply not true any more.
+function rcSay(txt,col){ rcTxt=txt; rcCol=col; rcAge=0; }
+const RC_HOLD=1.1;                       // seconds the verdict stays legible
+function drawRcRead(dt){
+  rcAge+=dt;
+  if(rcAge>RC_HOLD){ if(rcEl.style.opacity!=='0')rcEl.style.opacity='0'; return; }
+  if(rcEl.textContent!==rcTxt){rcEl.textContent=rcTxt;rcEl.style.color=rcCol;}
+  // full brightness for the first third, then fall away -- long enough to
+  // read at a glance, short enough that it never becomes furniture
+  rcEl.style.opacity=String(Math.min(1,(1-rcAge/RC_HOLD)*1.5));
+}
 function drawViz(now,dt){
   const c=vctx; c.clearRect(0,0,160,160);
+  drawRcRead(dt);
+  rcHit=Math.max(0,rcHit-dt*2.2);
+  rcMiss=Math.max(0,rcMiss-dt*2.2);
+  onsetFlash=Math.max(0,onsetFlash-dt*5.5);
   c.save(); c.translate(80,80);
   c.fillStyle='rgba(0,16,4,0.55)';
   c.beginPath(); c.arc(0,0,VIZ_R+5,0,7); c.fill();
@@ -3647,9 +3998,49 @@ function drawViz(now,dt){
   const bass=(vizLvl[0]+vizLvl[1]+vizLvl[2])/3;
   c.globalAlpha=0.20+0.45*bass; c.fillStyle='#33ff55'; c.lineCap='butt';
   c.beginPath(); c.arc(0,0,VIZ_R0*(0.22+0.30*bass),0,7); c.fill();
-  // bezel, breathing the beat exactly as the radar's does
-  c.globalAlpha=0.55+0.25*beatEnv; c.strokeStyle='#33ff55'; c.lineWidth=1.5;
-  c.beginPath(); c.arc(0,0,VIZ_R,0,7); c.stroke();
+  // ---- THE BEAT MARKER ---------------------------------------------------
+  // Rings rise out of the core and LAND ON THE BEZEL exactly on the beat.
+  // Outward, not inward, for two reasons: the canvas has room for it (the
+  // bezel is the outer edge, so an approach from outside would clip), and it
+  // is the same gesture the spokes already make -- energy leaving the middle.
+  // The spokes carry FREQUENCY out of the core; these carry TIME.
+  //
+  // Drawn approaching, never flashed on arrival. Reaction is ~200ms and the
+  // window is +/-70ms, so a marker that only appears ON the beat can be
+  // reacted to, late, and never played. We can afford the lead because the
+  // delay buffer already knows the future: heardOnsets holds each event's
+  // arrival at the EARS, T seconds early.
+  {
+    const tR=actx.currentTime;
+    c.lineCap='butt';
+    for(const h of heardOnsets){
+      const lead=h-tR;
+      if(lead>TU.RC_LEAD)break;                  // ascending, so nothing later matters
+      if(lead<0)continue;                        // landed; the bezel flash has it now
+      const f=lead/Math.max(0.05,TU.RC_LEAD);    // 1 just born -> 0 on the beat
+      const r=VIZ_R0+(VIZ_R-VIZ_R0)*(1-f);
+      // brightness IS the anticipation: a hint at the core, a shout at the rim
+      c.globalAlpha=(0.10+0.72*Math.pow(1-f,1.6))*(1-TU.RC_DIM*rcMiss);
+      c.strokeStyle='#eaffef';                   // WHITE is the beat; green is the music
+      c.lineWidth=1+1.6*(1-f);
+      c.beginPath(); c.arc(0,0,r,0,7); c.stroke();
+    }
+  }
+  // bezel, breathing the beat exactly as the radar's does -- and now doing
+  // three more jobs, all of them in BRIGHTNESS. It is the line the rings land
+  // on, so contact FLARES it; a live chain keeps it burning and warms it
+  // toward the on-beat gold; a miss puts it out. That is the whole chain
+  // readout: no counter, the same trade the lock count already made.
+  {
+    const chain=Math.min(1,rhythm/6);
+    c.globalAlpha=Math.min(1,(0.55+0.25*beatEnv+0.45*onsetFlash
+                              +0.7*TU.RC_HOT*chain+0.5*rcHit)
+                             *(1-TU.RC_DIM*rcMiss));
+    // gold only as the chain climbs, so the colour still means something
+    c.strokeStyle=rcHit>0.05||chain>0.5?'#ffd76a':'#33ff55';
+    c.lineWidth=1.5+1.5*Math.max(chain,onsetFlash*0.8)+2*rcHit;
+    c.beginPath(); c.arc(0,0,VIZ_R,0,7); c.stroke();
+  }
   c.restore();
 }
 function drawRadar(now){
@@ -3670,7 +4061,14 @@ function drawRadar(now){
   c.closePath(); c.fill();
   const sc=RAD_R/RAD_RANGE;
   for(let i=radarPings.length-1;i>=0;i--){          // the event echoes
-    const pg=radarPings[i], age=(now-pg.t0)/1000;
+    // A ping can be stamped in the FUTURE relative to this draw, and it is
+    // not a clock mismatch: both sides use performance.now(), but the rAF
+    // callback's `now` is the FRAME START, while a ping is stamped whenever
+    // during that frame it happens to be fired. One long frame -- a GC pause,
+    // a terrain rebuild -- and the ping is ahead of the frame that draws it.
+    // A run just threw IndexSizeError on radius -34.7, which is 4+age*22 at
+    // age -1.76s: a 1.8-second frame. An unstarted ping is simply age 0.
+    const pg=radarPings[i], age=Math.max(0,(now-pg.t0)/1000);
     if(age>0.7){radarPings.splice(i,1);continue;}
     let px=(pg.x-shipPos.x)*sc, py=(pg.z+SPEED*age-shipPos.z)*sc;
     const d=Math.hypot(px,py);
@@ -3715,7 +4113,7 @@ function drawRadar(now){
 // MIRROR each other across the top of the screen, so one of them surviving a
 // cinematic blackout reads as a bug rather than as a choice.
 const hudAll=['hud','score','bigscore','shieldrow','hiscore','radar',
-              'viz','touchui','zone']
+              'viz','rcread','touchui','zone']
   .map(id=>document.getElementById(id));
 // Deliberately NOT in hudAll. hudAll is what a cinematic and PASSENGER mode
 // take away; the pause button follows the cinematic (a cutscene gets a clean
@@ -3886,7 +4284,7 @@ function tick(now,doRender=true){
   const tNow=actx.currentTime;
   {  // beat clock: heard onsets fire it; FP tempo interpolates the gaps
     let hit=false;
-    for(const h of heardOnsets)if(h>prevBeatChk&&h<=tNow){hit=true;break;}
+    for(const h of heardOnsets)if(h>prevBeatChk&&h<=tNow){hit=true;onsetFlash=1;break;}
     const bi=FP&&FP.tempo?60/FP.tempo:0;
     if(!hit&&bi&&playing&&!finished&&tNow-lastBeatT>=bi)hit=true;
     if(hit){beatEnv=1;lastBeatT=tNow;}
@@ -4625,8 +5023,7 @@ function tick(now,doRender=true){
     sp.userData.age+=dt;
     sp.position.y+=14*dt;
     sp.material.opacity=Math.max(0,1-sp.userData.age/0.9);
-    if(sp.userData.age>=0.9){scene.remove(sp);sp.material.map.dispose();
-      sp.material.dispose();pops.delete(sp);}
+    if(sp.userData.age>=0.9)killPop(sp);
   }
   for(const b2 of booms){b2.userData.age+=dt;const s=1+b2.userData.age*(b2.userData.grow||60);
     b2.scale.setScalar(s);b2.material.opacity=Math.max(0,1-b2.userData.age*2.4);
